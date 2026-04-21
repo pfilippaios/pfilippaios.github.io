@@ -1,0 +1,311 @@
+:root {
+  --bg-dark: #1a1020;
+  --bg-deep: #0d0815;
+  --brand-blue: #0072bb;
+  --brand-green: #0ca250;
+  --wood-light: #A0784C;
+  --wood-mid: #8B6538;
+  --wood-dark: #6B4C28;
+  --text-main: #f8fafc;
+  --text-pixel: #ffffff;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  min-height: 100%;
+  overflow: hidden;
+}
+
+body {
+  margin: 0;
+  font-family: 'Chakra Petch', sans-serif;
+  color: var(--text-main);
+  background: var(--bg-deep);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.app-shell {
+  width: 100%;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background:
+    radial-gradient(ellipse at top, rgba(0, 114, 187, 0.25), transparent 60%),
+    radial-gradient(ellipse at bottom, rgba(12, 162, 80, 0.2), transparent 60%),
+    repeating-linear-gradient(
+      45deg,
+      rgba(255, 255, 255, 0.02) 0 2px,
+      transparent 2px 24px
+    ),
+    linear-gradient(180deg, #1a1030 0%, var(--bg-deep) 100%);
+}
+
+.game-layout {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+}
+
+.phone-stage {
+  width: min(100%, 430px);
+  aspect-ratio: 9 / 16;
+  max-height: 90vh;
+  position: relative;
+  background: #1a1020;
+  border: 3px solid #3a2a40;
+  border-radius: 12px;
+  box-shadow: 0 0 0 3px #0d0815, 0 20px 60px rgba(0,0,0,0.6);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Header — dark bar like screenshot */
+.topbar {
+  background: linear-gradient(180deg, #2a2040, #1a1030);
+  border-bottom: 2px solid #3a2a45;
+  padding: 8px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 52px;
+  flex-shrink: 0;
+}
+
+.brand-lockup {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.brand-logo {
+  height: 28px;
+  width: auto;
+}
+
+.brand-lockup h1 {
+  font-family: 'Press Start 2P', cursive;
+  font-size: 11px;
+  margin: 0;
+  color: var(--text-pixel);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+/* Restart button — retro wooden style */
+.ghost-button {
+  background: linear-gradient(180deg, var(--wood-light), var(--wood-dark));
+  border: 2px solid #4A3520;
+  color: #fff;
+  font-family: 'Press Start 2P', cursive;
+  font-size: 7px;
+  padding: 6px 12px;
+  cursor: pointer;
+  border-radius: 2px;
+  text-shadow: 1px 1px 0 rgba(0,0,0,0.5);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.15), 0 2px 4px rgba(0,0,0,0.4);
+}
+
+.ghost-button:active {
+  background: linear-gradient(180deg, var(--wood-dark), var(--wood-mid));
+  transform: translateY(1px);
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.4);
+}
+
+/* Score HUD — pixel font black boxes */
+.score-strip {
+  position: absolute;
+  top: 8px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-between;
+  padding: 0 8px;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.score-strip article {
+  background: rgba(0, 0, 0, 0.75);
+  padding: 6px 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.score-strip .label {
+  font-family: 'Press Start 2P', cursive;
+  font-size: 9px;
+  color: #fff;
+  text-transform: uppercase;
+  text-shadow: 2px 2px 0 #000;
+}
+
+.score-strip strong {
+  font-family: 'Press Start 2P', cursive;
+  font-size: 12px;
+  color: #fff;
+  text-shadow: 2px 2px 0 #000;
+}
+
+.canvas-panel {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+
+canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* Overlays & Cards */
+.overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.82);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  z-index: 10;
+}
+
+.overlay.visible {
+  display: flex;
+}
+
+.overlay-card, .lead-card {
+  background: linear-gradient(180deg, #2a2040, #1a1030);
+  border: 3px solid #4a3a55;
+  padding: 24px;
+  width: 100%;
+  border-radius: 4px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+}
+
+.overlay-card h2, .lead-card h2 {
+  font-family: 'Press Start 2P', cursive;
+  font-size: 13px;
+  color: var(--brand-green);
+  margin-bottom: 16px;
+  line-height: 1.5;
+  text-shadow: 1px 1px 0 rgba(0,0,0,0.5);
+}
+
+.overlay-card p, .lead-card p {
+  font-size: 13px;
+  line-height: 1.7;
+  margin-bottom: 20px;
+  color: #d0c8d8;
+}
+
+/* Primary action — wooden retro button */
+.primary-button {
+  width: 100%;
+  background: linear-gradient(180deg, var(--wood-light), var(--wood-dark));
+  border: 3px solid #4A3520;
+  color: #fff;
+  font-family: 'Press Start 2P', cursive;
+  font-size: 10px;
+  padding: 14px;
+  cursor: pointer;
+  border-radius: 3px;
+  text-shadow: 1px 1px 0 rgba(0,0,0,0.5);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.2), 0 3px 6px rgba(0,0,0,0.4);
+}
+
+.primary-button:active {
+  background: linear-gradient(180deg, var(--wood-dark), var(--wood-mid));
+  transform: translateY(2px);
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.4);
+}
+
+/* Lead Form */
+.lead-card {
+  position: absolute;
+  inset: 0;
+  z-index: 11;
+  flex-direction: column;
+  overflow-y: auto;
+  padding: 24px;
+  background: rgba(13, 8, 21, 0.95);
+  border: none;
+  border-radius: 0;
+}
+
+.lead-card:not(.hidden) {
+  display: flex;
+}
+
+.lead-card label {
+  font-family: 'Press Start 2P', cursive;
+  font-size: 7px;
+  margin-bottom: 14px;
+  display: block;
+  color: #b0a0c0;
+}
+
+.lead-card input {
+  width: 100%;
+  background: #1a1030;
+  border: 2px solid #3a2a50;
+  color: #fff;
+  padding: 10px 12px;
+  margin-top: 6px;
+  font-family: 'Chakra Petch', sans-serif;
+  font-size: 14px;
+  border-radius: 3px;
+  outline: none;
+}
+
+.lead-card input:focus {
+  border-color: var(--brand-green);
+}
+
+.eyebrow {
+  font-family: 'Press Start 2P', cursive;
+  font-size: 8px;
+  color: var(--brand-blue);
+  text-transform: uppercase;
+  margin-bottom: 8px;
+  letter-spacing: 1px;
+}
+
+.form-note {
+  font-size: 11px;
+  color: var(--brand-green);
+  margin-top: 12px;
+}
+
+.tips-card {
+  display: none;
+}
+
+.hidden {
+  display: none !important;
+}
+
+@media (max-width: 640px) {
+  .game-layout {
+    padding: 0;
+  }
+  .phone-stage {
+    width: 100vw;
+    height: 100vh;
+    max-height: none;
+    border: none;
+    border-radius: 0;
+  }
+  .app-shell {
+    background: var(--bg-deep);
+  }
+}
