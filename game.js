@@ -100,16 +100,16 @@ const hoop = {
 };
 
 const BALL_DISPLAY_RADIUS = 38;
+const BALL_REST_Y = GAME_HEIGHT - 220; // 540 — raised for mobile viewport
 
 const ball = {
   radius: 33, // increased from 30 to match larger depth scale
   x: GAME_WIDTH * 0.5,
-  y: GAME_HEIGHT - 120,
+  y: BALL_REST_Y,
   prevX: GAME_WIDTH * 0.5,
-  prevY: GAME_HEIGHT - 120,
+  prevY: BALL_REST_Y,
   vx: 0,
   vy: 0,
-  active: false,
   active: false,
   trail: [],
   scored: false,
@@ -149,7 +149,7 @@ function hideOverlay(overlay) {
 /* ─── Ball / Game reset ─── */
 function resetBall() {
   ball.x = GAME_WIDTH * 0.5;
-  ball.y = GAME_HEIGHT - 120;
+  ball.y = BALL_REST_Y;
   ball.prevX = ball.x;
   ball.prevY = ball.y;
   ball.vx = 0;
@@ -243,7 +243,7 @@ function launchBall() {
   }
   const assistFactor = state.assistMode ? 1.15 : 1;
   ball.vx = clamp((dx * 0.03) * assistFactor, -2.5, 2.5);
-  ball.vy = clamp((-upwardPull * 0.075) * assistFactor - 4.0, -18, -9);
+  ball.vy = clamp((-upwardPull * 0.08) * assistFactor - 5.0, -19, -12);
   ball.active = true;
   ball.trail = [];
   state.dragging = false;
@@ -349,7 +349,15 @@ function updateBallPhysics() {
       if (ball.y < hoop.rimY || ball.vy > 0) {
         ball.vx += dxToHoop * 0.004; // Gentle pull
       }
-      ball.vy += dyToHoop * 0.0015;
+      // Only apply vertical pull when it HELPS arc:
+      //   - ball below rim: lift upward (dy negative)
+      //   - ball above rim AND falling: guide into hoop (dy positive, vy > 0)
+      // Skip when ball is above rim and still rising — otherwise caps apex at rim.
+      const belowRim = ball.y > hoop.rimY;
+      const falling = ball.vy > 0;
+      if (belowRim || falling) {
+        ball.vy += dyToHoop * 0.0015;
+      }
     }
     // Lighter damping for natural movement
     ball.vx *= 0.99;
@@ -361,7 +369,7 @@ function updateBallPhysics() {
   
   if (ball.active) {
     // Standard restrictive plane physics: locked to hoop plane
-    ball.z = clamp((GAME_HEIGHT - 120 - ball.y) / 3.93, 0, 110);
+    ball.z = clamp((BALL_REST_Y - ball.y) / 3.93, 0, 110);
   }
 
   // Effective radius scales with depth so visual matches collision
@@ -379,18 +387,22 @@ function updateBallPhysics() {
     const dx = ball.x - px;
     const dy = ball.y - py;
     const dist = Math.hypot(dx, dy);
-    if (dist === 0 || dist >= effR) return;
+    if (dist === 0 || dist >= effR) return false;
 
     if (state.assistMode) {
+      // Ball rising and above rim plane: let it fly over. No collision response.
+      if (ball.vy < 0 && ball.y < hoop.rimY) {
+        return false;
+      }
       if (ball.vy < 0 && ball.y > hoop.rimY - 15) {
-        ball.vy = Math.min(ball.vy, -1.8); 
+        ball.vy = Math.min(ball.vy, -0.2);
         ball.vx += (hoop.centerX - ball.x) * 0.08;
-        return;
+        return true;
       }
       ball.vx += (hoop.centerX - ball.x) * 0.12;
-      ball.vy = Math.max(ball.vy, 1.0);
+      ball.vy = Math.max(ball.vy, 0.1);
       ball.hoopState = "entering";
-      return;
+      return true;
     }
 
     const nx = dx / dist;
@@ -400,20 +412,24 @@ function updateBallPhysics() {
     ball.y += ny * overlap;
     const vDotN = ball.vx * nx + ball.vy * ny;
     if (vDotN < 0) {
-      const restitution = 0.25; // Deadened bounce for heavy ball
+      const restitution = 0.02; // Deadened bounce for heavy ball
       ball.vx = (ball.vx - 2 * vDotN * nx) * restitution;
       ball.vy = (ball.vy - 2 * vDotN * ny) * restitution;
     }
+    return true;
   }
   const p = 0.3; // perspective factor (rim height vs width)
   const rimPoints = 24;
+  let rimHit = false;
   for (let i = 0; i < rimPoints; i++) {
     const angle = (i / rimPoints) * Math.PI * 2;
     const px = hoop.centerX + Math.cos(angle) * hoop.rimRadius;
     const py = hoop.rimY + Math.sin(angle) * hoop.rimRadius * p;
 
-    // In assist mode, every rim hit is a win.
-    collideRimPoint(px, py);
+    if (collideRimPoint(px, py)) {
+      rimHit = true;
+      break;
+    }
   }
 
   // Low-energy rim contacts can leave the ball balanced on the hoop. Nudge those
@@ -430,11 +446,11 @@ function updateBallPhysics() {
   if (stalledOnRim) {
     const centeredOverMouth = Math.abs(ball.x - hoop.centerX) < hoop.rimRadius * 0.65;
     if (centeredOverMouth) {
-      ball.vx += rimDx * 0.05;
-      ball.vy = Math.max(ball.vy, 1.2);
+      ball.vx += rimDx * 0.005;
+      ball.vy = Math.max(ball.vy, 0.1);
     } else {
-      ball.vx += ball.x < hoop.centerX ? -0.5 : 0.5;
-      ball.vy = Math.max(ball.vy, 1.0);
+      ball.vx += ball.x < hoop.centerX ? -0.1 : 0.1;
+      ball.vy = Math.max(ball.vy, 0.1);
     }
   }
 
@@ -447,8 +463,22 @@ function updateBallPhysics() {
   const hitsBackboardX = ball.x + effR > backboardLeft && ball.x - effR < backboardRight;
   const hitsBackboardY = ball.y + effR > backboardTop && ball.y - effR < backboardBottom;
 
+  let backboardHit = false;
   if (hitsBackboardX && hitsBackboardY && ball.vy < 0) {
-    ball.vy = -ball.vy * 0.25; // Heavy thud off the backboard
+    ball.vy = -ball.vy * 0.01; // Heavy thud off the backboard
+    ball.vx *= 0.3; // Kill horizontal slide on impact
+    backboardHit = true;
+  }
+
+  // Global post-collision speed cap — prevents stacking bumps from launching ball.
+  if (rimHit || backboardHit) {
+    const MAX_POST_HIT_SPEED = 8;
+    const sp = Math.hypot(ball.vx, ball.vy);
+    if (sp > MAX_POST_HIT_SPEED) {
+      const k = MAX_POST_HIT_SPEED / sp;
+      ball.vx *= k;
+      ball.vy *= k;
+    }
   }
 
   const ballBottom = ball.y + (BALL_DISPLAY_RADIUS * scale);
@@ -523,6 +553,20 @@ function getDynamicScale() {
   return baseScale - vyFactor;
 }
 
+function drawBallGlow() {
+  if (!state.dragging || ball.active) return;
+  const pulse = (Math.sin(Date.now() / 180) + 1) * 0.5;
+  const baseR = BALL_DISPLAY_RADIUS * depthScale(ball.z);
+  const glowR = baseR + 10 + pulse * 8;
+  const grad = ctx.createRadialGradient(ball.x, ball.y, baseR * 0.6, ball.x, ball.y, glowR);
+  grad.addColorStop(0, `rgba(255, 196, 64, ${0.35 + pulse * 0.25})`);
+  grad.addColorStop(1, "rgba(255, 196, 64, 0)");
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.arc(ball.x, ball.y, glowR, 0, Math.PI * 2);
+  ctx.fill();
+}
+
 function drawBallShadowAndTrail() {
   // Shadow on ground
   if (ball.y < GAME_HEIGHT - 80) {
@@ -569,7 +613,7 @@ function drawAimGuide() {
   const dy = state.pointerCurrent.y - state.pointerStart.y;
   const assistFactor = state.assistMode ? 1.15 : 1;
   const previewVx = clamp((dx * 0.03) * assistFactor, -2.5, 2.5);
-  const previewVy = clamp((-clamp(-dy, 20, 260) * 0.075) * assistFactor - 4.0, -18, -9);
+  const previewVy = clamp((-clamp(-dy, 20, 260) * 0.08) * assistFactor - 5.0, -19, -12);
 
   ctx.setLineDash([8, 6]);
   ctx.strokeStyle = "rgba(255, 255, 255, 0.6)";
@@ -695,16 +739,20 @@ function drawScene() {
   drawAssistGlow();
 
   drawBallShadowAndTrail();
+  drawBallGlow();
   drawNet();
 
-  const isEntering = ball.hoopState === "entering" || ball.hoopState === "scored";
+  // Ball stays in FRONT of front-hoop during launch, arc, and going over rim.
+  // Only slides BEHIND front-hoop once actually dropping INTO the net.
+  const droppingIntoNet =
+    (ball.hoopState === "entering" || ball.hoopState === "scored") &&
+    ball.vy > 0 &&
+    ball.y >= hoop.rimY - 2;
 
-  if (isEntering) {
-    // Ball is inside the net, sandwich it behind the front rim
+  if (droppingIntoNet) {
     drawBallSprite();
     drawFrontHoop();
   } else {
-    // Ball is being thrown from the player (closer to camera), draw it on top
     drawFrontHoop();
     drawBallSprite();
   }
