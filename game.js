@@ -242,7 +242,7 @@ function launchBall() {
     return;
   }
   const assistFactor = state.assistMode ? 1.15 : 1;
-  ball.vx = clamp((-dx * 0.03) * assistFactor, -2.5, 2.5);
+  ball.vx = clamp((dx * 0.03) * assistFactor, -2.5, 2.5);
   ball.vy = clamp((-upwardPull * 0.075) * assistFactor - 4.0, -18, -9);
   ball.active = true;
   ball.trail = [];
@@ -568,7 +568,7 @@ function drawAimGuide() {
   const dx = state.pointerCurrent.x - state.pointerStart.x;
   const dy = state.pointerCurrent.y - state.pointerStart.y;
   const assistFactor = state.assistMode ? 1.15 : 1;
-  const previewVx = clamp((-dx * 0.03) * assistFactor, -2.5, 2.5);
+  const previewVx = clamp((dx * 0.03) * assistFactor, -2.5, 2.5);
   const previewVy = clamp((-clamp(-dy, 20, 260) * 0.075) * assistFactor - 4.0, -18, -9);
 
   ctx.setLineDash([8, 6]);
