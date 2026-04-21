@@ -13,6 +13,17 @@ const startButton = document.getElementById("startButton");
 const restartButton = document.getElementById("restartButton");
 const leadForm = document.getElementById("leadForm");
 const formFeedback = document.getElementById("formFeedback");
+const restartConfirmOverlay = document.getElementById("restartConfirmOverlay");
+const restartConfirmButton = document.getElementById("restartConfirmButton");
+const restartCancelButton = document.getElementById("restartCancelButton");
+const helpButton = document.getElementById("helpButton");
+const helpOverlay = document.getElementById("helpOverlay");
+const helpCloseButton = document.getElementById("helpCloseButton");
+const auxOverlay = document.getElementById("auxOverlay");
+const auxOverlayTitle = document.getElementById("auxOverlayTitle");
+const auxOverlayContent = document.getElementById("auxOverlayContent");
+const auxCloseButton = document.getElementById("auxCloseButton");
+const auxPageButtons = Array.from(document.querySelectorAll("[data-aux-page]"));
 
 /* ─── Image assets ─── */
 let assetsLoaded = 0;
@@ -22,7 +33,8 @@ function onAssetLoad() {
   assetsLoaded++;
   if (assetsLoaded >= TOTAL_ASSETS) {
     setupCanvas();
-    resetGame();
+    resetBall();
+    updateHud();
     render();
   }
 }
@@ -62,6 +74,62 @@ frontHoopImage.src = "./assets/front-hoop.png";
 const TEST_MODE = false;
 const SLOW_MO = 1.0;
 
+/* ─── Debug panel ─── */
+const debugPanel = document.getElementById("debugPanel");
+const debugStateNode = document.getElementById("debugState");
+const debugLogNode = document.getElementById("debugLog");
+const debugClearBtn = document.getElementById("debugClear");
+const debugToggleBtn = document.getElementById("debugToggle");
+
+const debug = {
+  entries: [],
+  max: 80,
+  log(msg, level = "info") {
+    const t = (performance.now() / 1000).toFixed(2);
+    this.entries.push({ t, msg, level });
+    if (this.entries.length > this.max) this.entries.shift();
+    this.renderLog();
+  },
+  renderLog() {
+    if (!debugLogNode) return;
+    const cls = { info: "entry", warn: "entry warn", err: "entry err", evt: "entry evt" };
+    debugLogNode.innerHTML = this.entries
+      .map(e => `<div class="${cls[e.level] || "entry"}">[${e.t}] ${e.msg}</div>`)
+      .join("");
+    debugLogNode.scrollTop = debugLogNode.scrollHeight;
+  },
+  clear() {
+    this.entries = [];
+    this.renderLog();
+  },
+  renderState() {
+    if (!debugStateNode) return;
+    const s = state;
+    const b = ball;
+    debugStateNode.textContent =
+      `started=${s.started} finished=${s.finished} assist=${s.assistMode}
+attempts=${s.attemptsUsed}/${MAX_ATTEMPTS} made=${s.shotsMade}/${WIN_THRESHOLD} score=${s.score}
+dragging=${s.dragging} awaitMsg=${s.awaitingMessage}
+ball.active=${b.active} scored=${b.scored} hoop=${b.hoopState}
+ball.x=${b.x.toFixed(1)} y=${b.y.toFixed(1)} z=${b.z.toFixed(1)}
+ball.vx=${b.vx.toFixed(2)} vy=${b.vy.toFixed(2)} flight=${b.flightTime || 0}`;
+  },
+};
+
+if (debugClearBtn) debugClearBtn.addEventListener("click", () => debug.clear());
+if (debugToggleBtn) debugToggleBtn.addEventListener("click", () => {
+  debugPanel.classList.toggle("collapsed");
+  debugToggleBtn.textContent = debugPanel.classList.contains("collapsed") ? "show" : "hide";
+});
+// Keyboard toggle: D key
+window.addEventListener("keydown", (e) => {
+  if (e.key === "d" || e.key === "D") {
+    debugPanel.classList.toggle("collapsed");
+    if (debugToggleBtn) debugToggleBtn.textContent = debugPanel.classList.contains("collapsed") ? "show" : "hide";
+  }
+});
+debug.log("boot", "evt");
+
 /* ─── Constants ─── */
 const DPR = Math.max(window.devicePixelRatio || 1, 1);
 const GAME_WIDTH = 420;
@@ -69,19 +137,62 @@ const GAME_HEIGHT = 760;
 const GRAVITY = 0.22;
 const BASE_RESET_DELAY = 900;
 const SCORE_VALUE = 100;
+const MAX_ATTEMPTS = 5;
+const WIN_THRESHOLD = 3;
+
+const AUX_PAGES = {
+  terms: {
+    title: "Όροι Χρήσης",
+    body: `
+      <h3>Χρήση της εμπειρίας</h3>
+      <p>Το Hoop Rush είναι μια διαδραστική προωθητική εμπειρία του ΦΥΣΙΚΟ&nbsp;ΑΕΡΙΟ. Η χρήση της εφαρμογής προϋποθέτει αποδοχή των όρων που διέπουν τη συμμετοχή και την ορθή χρήση της.</p>
+      <ul>
+        <li>Η συμμετοχή ολοκληρώνεται μόνο μετά την επιτυχή υποβολή της φόρμας.</li>
+        <li>Κάθε συμμετέχων χρησιμοποιεί τα πραγματικά του στοιχεία.</li>
+        <li>Οι διοργανωτές μπορούν να ακυρώσουν συμμετοχές που εμφανίζουν ελλιπή ή ανακριβή στοιχεία.</li>
+      </ul>
+    `,
+  },
+  contest: {
+    title: "Πληροφορίες Διαγωνισμού",
+    body: `
+      <h3>Πώς λειτουργεί η κλήρωση</h3>
+      <p>Για να λάβεις μέρος, χρειάζεται να πετύχεις το απαιτούμενο σκορ μέσα στο παιχνίδι και στη συνέχεια να καταχωρήσεις τα στοιχεία σου στη σχετική φόρμα συμμετοχής.</p>
+      <ul>
+        <li>Η πρόσβαση στη φόρμα συμμετοχής ξεκλειδώνει μετά την επιτυχή ολοκλήρωση του challenge.</li>
+        <li>Η κλήρωση πραγματοποιείται ανάμεσα στις έγκυρες συμμετοχές που έχουν καταχωρηθεί σωστά.</li>
+        <li>Για αναλυτικούς όρους, υπερισχύει το επίσημο κείμενο του διαγωνισμού της ενέργειας.</li>
+      </ul>
+    `,
+  },
+  privacy: {
+    title: "Προσωπικά Δεδομένα",
+    body: `
+      <h3>Επεξεργασία στοιχείων</h3>
+      <p>Τα στοιχεία που υποβάλλονται μέσω της φόρμας χρησιμοποιούνται αποκλειστικά για τους σκοπούς διαχείρισης της συμμετοχής σου, της επικοινωνίας με τους νικητές και της υποστήριξης της συγκεκριμένης προωθητικής ενέργειας.</p>
+      <ul>
+        <li>Συλλέγονται μόνο τα απολύτως απαραίτητα στοιχεία επικοινωνίας.</li>
+        <li>Η επεξεργασία γίνεται σύμφωνα με την ισχύουσα νομοθεσία περί προστασίας προσωπικών δεδομένων.</li>
+        <li>Μπορείς να ζητήσεις ενημέρωση σχετικά με την επεξεργασία των στοιχείων σου από τους διοργανωτές της ενέργειας.</li>
+      </ul>
+    `,
+  },
+};
 
 /* ─── State ─── */
 let state = {
   started: false,
+  finished: false,
   attemptsUsed: 0,
   score: 0,
   shotsMade: 0,
   dragging: false,
   pointerStart: null,
   pointerCurrent: null,
+  scoreMessage: null,
   animationFrame: null,
   justScored: false,
-  assistMode: false,
+  assistMode: true,
   awaitingMessage: false,
 };
 
@@ -99,11 +210,11 @@ const hoop = {
   backboardWidth: 150,
 };
 
-const BALL_DISPLAY_RADIUS = 38;
+const BALL_DISPLAY_RADIUS = 36;
 const BALL_REST_Y = GAME_HEIGHT - 220; // 540 — raised for mobile viewport
 
 const ball = {
-  radius: 33, // increased from 30 to match larger depth scale
+  radius: 32,
   x: GAME_WIDTH * 0.5,
   y: BALL_REST_Y,
   prevX: GAME_WIDTH * 0.5,
@@ -128,8 +239,8 @@ function setupCanvas() {
 
 /* ─── HUD ─── */
 function updateHud() {
-  triesLeftNode.textContent = String(Math.max(3 - state.attemptsUsed, 0));
-  scoreValueNode.textContent = String(state.score);
+  triesLeftNode.textContent = String(Math.max(MAX_ATTEMPTS - state.attemptsUsed, 0));
+  scoreValueNode.textContent = `${state.shotsMade}/${MAX_ATTEMPTS}`;
 }
 
 /* ─── Overlays ─── */
@@ -146,6 +257,14 @@ function hideOverlay(overlay) {
   overlay.classList.remove("visible");
 }
 
+function openAuxPage(pageKey) {
+  const page = AUX_PAGES[pageKey];
+  if (!page) return;
+  auxOverlayTitle.textContent = page.title;
+  auxOverlayContent.innerHTML = page.body;
+  auxOverlay.classList.add("visible");
+}
+
 /* ─── Ball / Game reset ─── */
 function resetBall() {
   ball.x = GAME_WIDTH * 0.5;
@@ -160,6 +279,7 @@ function resetBall() {
   ball.hoopState = "outside";
   ball.flightTime = 0;
   ball.z = 0;
+  ball.validEntry = false;
   state.justScored = false;
   state.dragging = false;
   state.pointerStart = null;
@@ -167,7 +287,8 @@ function resetBall() {
 }
 
 function resetGame() {
-  state.started = true;
+  state.started = false;
+  state.finished = false;
   state.attemptsUsed = 0;
   state.score = 0;
   state.shotsMade = 0;
@@ -178,7 +299,7 @@ function resetGame() {
   state.assistMode = true; // High conversion: Always on for mobile
   state.awaitingMessage = false;
   hideOverlay(messageOverlay);
-  startOverlay.classList.remove("visible");
+  startOverlay.classList.add("visible");
   leadForm.classList.add("hidden");
   leadForm.reset();
   formFeedback.textContent = "";
@@ -188,11 +309,17 @@ function resetGame() {
 
 function beginGame() {
   state.started = true;
+  state.finished = false;
+  state.attemptsUsed = 0;
+  state.score = 0;
+  state.shotsMade = 0;
   startOverlay.classList.remove("visible");
   hideOverlay(messageOverlay);
   leadForm.classList.add("hidden");
   state.awaitingMessage = false;
+  resetBall();
   updateHud();
+  debug.log("beginGame", "evt");
 }
 
 /* ─── Pointer helpers ─── */
@@ -216,7 +343,7 @@ function clamp(value, min, max) {
 
 /* ─── Pointer events ─── */
 function handlePointerDown(event) {
-  if (!state.started || ball.active || state.awaitingMessage || state.shotsMade > 0) return;
+  if (!state.started || state.finished || ball.active || state.awaitingMessage) return;
   const position = getPointerPosition(event);
   if (!isPointerOnBall(position)) return;
   state.dragging = true;
@@ -251,6 +378,7 @@ function launchBall() {
   state.pointerCurrent = null;
   state.attemptsUsed += 1;
   updateHud();
+  debug.log(`launch vx=${ball.vx.toFixed(2)} vy=${ball.vy.toFixed(2)} dx=${dx.toFixed(0)} dy=${dy.toFixed(0)} attempt=${state.attemptsUsed}`, "evt");
 }
 
 function handlePointerUp() {
@@ -265,27 +393,62 @@ function setAssistMode() {
   updateHud();
 }
 
+function showWinOverlay() {
+  state.finished = true;
+  debug.log(`WIN made=${state.shotsMade}/${WIN_THRESHOLD}`, "evt");
+  showOverlay({
+    eyebrow: "Νικητής",
+    title: "Τα Κατάφερες",
+    body: "Συμπλήρωσε τη φόρμα για να διεκδικήσεις το δώρο Fysiko Aerio.",
+    buttonLabel: "Άνοιγμα Φόρμας",
+  });
+}
+
+function showLossOverlay() {
+  state.finished = true;
+  debug.log(`LOSS made=${state.shotsMade}/${WIN_THRESHOLD}`, "err");
+  showOverlay({
+    eyebrow: "Τέλος",
+    title: "Δεν Τα Κατάφερες",
+    body: `Βρήκες ${state.shotsMade}/${MAX_ATTEMPTS}. Χρειάζονται τουλάχιστον ${WIN_THRESHOLD}. Πάτα για ξανά.`,
+    buttonLabel: "Ξανά",
+  });
+}
+
 function concludeMiss() {
+  debug.log(`MISS attempts=${state.attemptsUsed}/${MAX_ATTEMPTS} made=${state.shotsMade} ballY=${ball.y.toFixed(1)}`, "warn");
   if (TEST_MODE) {
     resetBall();
     return;
   }
-  const remaining = 3 - state.attemptsUsed;
-  if (remaining > 0) {
-    setAssistMode();
-    showOverlay({
-      eyebrow: remaining === 1 ? "Final Shot Boost" : "Keep Going",
-      title: remaining === 1 ? "Last Try Gets A Boost" : "Good Try",
-      body: remaining === 1
-        ? "Your last attempt gets an extra pull toward the rim so every player can reach the winner form."
-        : "Aim a little above the hoop and use a longer upward swipe.",
-      buttonLabel: "Shoot Again",
-    });
+  const remaining = MAX_ATTEMPTS - state.attemptsUsed;
+  const needed = WIN_THRESHOLD - state.shotsMade;
+  // Early exit: impossible to still reach WIN_THRESHOLD.
+  if (needed > remaining) {
+    showLossOverlay();
     resetBall();
     return;
   }
-  forceWin();
+  if (remaining <= 0) {
+    if (state.shotsMade >= WIN_THRESHOLD) {
+      showWinOverlay();
+    } else {
+      showLossOverlay();
+    }
+    resetBall();
+    return;
+  }
+  setAssistMode();
+  showOverlay({
+    eyebrow: "Αστοχία",
+    title: "Εκτός Στόχου",
+    body: `Έμειναν ${remaining} προσπάθειες. Χρειάζονται ${needed} καλάθια ακόμα.`,
+    buttonLabel: "Επόμενη Βολή",
+  });
+  resetBall();
 }
+
+const SCORE_MESSAGES = ["ΚΑΛΑΘΙ!", "ΜΠΑΜ!", "ΦΟΒΕΡΟ!", "ΤΕΛΕΙΟ!", "ΣΩΣΤΟΣ!", "ΝΑΙ!"];
 
 function registerScore() {
   if (ball.scored) return;
@@ -294,33 +457,25 @@ function registerScore() {
   state.justScored = true;
   state.shotsMade += 1;
   state.score += SCORE_VALUE;
+  state.scoreMessage = {
+    text: SCORE_MESSAGES[Math.floor(Math.random() * SCORE_MESSAGES.length)],
+    startTime: performance.now(),
+  };
   updateHud();
+  debug.log(`SCORE! made=${state.shotsMade}/${WIN_THRESHOLD} attempts=${state.attemptsUsed}/${MAX_ATTEMPTS}`, "evt");
   if (TEST_MODE) {
     window.setTimeout(resetBall, 420);
     return;
   }
   window.setTimeout(() => {
-    showOverlay({
-      eyebrow: "Winner",
-      title: "You Nailed It",
-      body: "Complete the form and enter the Fysiko Aerio prize draw.",
-      buttonLabel: "Open Form",
-    });
+    const remaining = MAX_ATTEMPTS - state.attemptsUsed;
+    if (state.shotsMade >= WIN_THRESHOLD) {
+      showWinOverlay();
+    } else if (remaining <= 0) {
+      showLossOverlay();
+    }
     resetBall();
-  }, 420);
-}
-
-function forceWin() {
-  state.score += SCORE_VALUE;
-  state.shotsMade = 1;
-  updateHud();
-  showOverlay({
-    eyebrow: "Crowd Boost",
-    title: "You Win",
-    body: "The crowd powered your final shot into the hoop. Fill in the form below to claim your entry.",
-    buttonLabel: "Open Form",
-  });
-  resetBall();
+  }, 1200);
 }
 
 /* ─── Physics ─── */
@@ -368,7 +523,6 @@ function updateBallPhysics() {
   ball.y += ball.vy * SLOW_MO;
   
   if (ball.active) {
-    // Standard restrictive plane physics: locked to hoop plane
     ball.z = clamp((BALL_REST_Y - ball.y) / 3.93, 0, 110);
   }
 
@@ -397,11 +551,29 @@ function updateBallPhysics() {
       if (ball.vy < 0 && ball.y > hoop.rimY - 15) {
         ball.vy = Math.min(ball.vy, -0.2);
         ball.vx += (hoop.centerX - ball.x) * 0.08;
+        debug.log(`rim.assist-rising-nudge y=${ball.y.toFixed(1)}`, "warn");
         return true;
       }
-      ball.vx += (hoop.centerX - ball.x) * 0.12;
-      ball.vy = Math.max(ball.vy, 0.1);
-      ball.hoopState = "entering";
+      // Ball falling. Only treat as "entering" when at/above rim plane — a legit
+      // top-down entry. Contacts from below bounce harmlessly without scoring.
+      if (ball.y <= hoop.rimY + 6) {
+        ball.vx += (hoop.centerX - ball.x) * 0.12;
+        ball.vy = Math.max(ball.vy, 0.1);
+        const prevHoop = ball.hoopState;
+        ball.hoopState = "entering";
+        ball.validEntry = true;
+        if (prevHoop !== "entering") debug.log(`rim.assist→entering y=${ball.y.toFixed(1)} vx=${ball.vx.toFixed(2)}`, "evt");
+        return true;
+      }
+      // Under-rim contact: deflect out without marking entering.
+      const nx = dx / dist;
+      const ny = dy / dist;
+      const overlap = effR - dist;
+      ball.x += nx * overlap;
+      ball.y += ny * overlap;
+      ball.vx *= 0.4;
+      ball.vy *= 0.3;
+      debug.log(`rim.under-rim-deflect y=${ball.y.toFixed(1)}`, "warn");
       return true;
     }
 
@@ -468,6 +640,7 @@ function updateBallPhysics() {
     ball.vy = -ball.vy * 0.01; // Heavy thud off the backboard
     ball.vx *= 0.3; // Kill horizontal slide on impact
     backboardHit = true;
+    debug.log(`backboard hit x=${ball.x.toFixed(1)} y=${ball.y.toFixed(1)}`, "warn");
   }
 
   // Global post-collision speed cap — prevents stacking bumps from launching ball.
@@ -492,6 +665,8 @@ function updateBallPhysics() {
 
   if (ball.hoopState === "outside" && crossedRimFromAbove) {
     ball.hoopState = "entering";
+    ball.validEntry = true;
+    debug.log(`top-down crossing y=${ball.y.toFixed(1)}`, "evt");
   }
 
   if (ball.hoopState === "entering") {
@@ -502,9 +677,17 @@ function updateBallPhysics() {
     }
   }
 
+  // Gentle centering through net — avoid side clip once committed to entry
+  if ((ball.hoopState === "entering" || ball.hoopState === "scored") && ball.vy > 0) {
+    ball.x += (hoop.centerX - ball.x) * 0.22;
+    ball.vx *= 0.55;
+    ball.vy = Math.min(ball.vy, 4.5);
+  }
+
   // Score only after a confirmed top-down hoop entry.
   if (
     !ball.scored &&
+    ball.validEntry &&
     ball.hoopState === "entering" &&
     ball.vy > 0 &&
     ball.y >= rimY + hoop.netHeight * 0.35 &&
@@ -539,18 +722,12 @@ function drawBackground() {
 }
 
 function depthScale(z) {
-  // Convert Z back into equivalent visual scale mapping. 
-  // Z=0 is player, Z=100 is hoop plane, Z=200 is horizon plane.
   const t = clamp(z / 130.5, 0, 1.6);
-  return 1 - Math.pow(t, 0.85) * 0.55;
+  return 1 - Math.pow(t, 0.85) * 0.6;
 }
 
 function getDynamicScale() {
-  const baseScale = depthScale(ball.z);
-  
-  // Velocity-based "push" to depth only for active sprite
-  const vyFactor = clamp(ball.vy * 0.003, -0.05, 0.05);
-  return baseScale - vyFactor;
+  return depthScale(ball.z);
 }
 
 function drawBallGlow() {
@@ -581,25 +758,8 @@ function drawBallShadowAndTrail() {
 }
 
 function drawBallSprite() {
-  const scale = getDynamicScale();
-  const r = BALL_DISPLAY_RADIUS * scale;
-
-  // Ball sprite with squash and stretch
-  ctx.save();
-  ctx.translate(ball.x, ball.y);
-
-  // Velocity magnitude for stretch
-  const velMag = Math.hypot(ball.vx, ball.vy);
-  const stretch = clamp(velMag * 0.008, 0, 0.15);
-  const squash = 1 / (1 + stretch);
-  
-  // Rotate to face velocity direction
-  if (velMag > 0.1) {
-    ctx.rotate(Math.atan2(ball.vy, ball.vx));
-  }
-
-  ctx.drawImage(ballImage, -r * (1 + stretch), -r * squash, r * 2 * (1 + stretch), r * 2 * squash);
-  ctx.restore();
+  const r = BALL_DISPLAY_RADIUS * getDynamicScale();
+  ctx.drawImage(ballImage, ball.x - r, ball.y - r, r * 2, r * 2);
 }
 
 function drawBall() {
@@ -633,8 +793,37 @@ function drawAimGuide() {
   ctx.setLineDash([]);
 }
 
+function drawScoreMessage() {
+  if (!state.scoreMessage) return;
+  const elapsed = performance.now() - state.scoreMessage.startTime;
+  const duration = 1200;
+  if (elapsed >= duration) {
+    state.scoreMessage = null;
+    return;
+  }
+  const t = elapsed / duration;
+  const alpha = t < 0.15 ? t / 0.15 : 1 - (t - 0.15) / 0.85;
+  const lift = 40 * t;
+  const scale = 0.8 + 0.4 * Math.min(1, t * 4);
+  const x = hoop.centerX;
+  const y = hoop.rimY - 70 - lift;
+
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(scale, scale);
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.font = "700 32px 'Chakra Petch', 'Bergen Sans', sans-serif";
+  ctx.lineWidth = 6;
+  ctx.strokeStyle = `rgba(0, 0, 0, ${0.7 * alpha})`;
+  ctx.strokeText(state.scoreMessage.text, 0, 0);
+  ctx.fillStyle = `rgba(94, 200, 212, ${alpha})`;
+  ctx.fillText(state.scoreMessage.text, 0, 0);
+  ctx.restore();
+}
+
 function drawAssistGlow() {
-  if (!state.assistMode || state.shotsMade > 0) return;
+  if (!state.assistMode || state.finished || !state.started) return;
   const pulse = (Math.sin(Date.now() / 140) + 1) * 0.5;
   ctx.beginPath();
   ctx.fillStyle = `rgba(12, 162, 80, ${0.06 + pulse * 0.06})`;
@@ -740,26 +929,25 @@ function drawScene() {
 
   drawBallShadowAndTrail();
   drawBallGlow();
-  drawNet();
 
-  // Ball stays in FRONT of front-hoop during launch, arc, and going over rim.
-  // Only slides BEHIND front-hoop once actually dropping INTO the net.
   const droppingIntoNet =
     (ball.hoopState === "entering" || ball.hoopState === "scored") &&
     ball.vy > 0 &&
     ball.y >= hoop.rimY - 2;
 
   if (droppingIntoNet) {
+    // Ball behind net strings and front rim
     drawBallSprite();
+    drawNet();
     drawFrontHoop();
   } else {
+    drawNet();
     drawFrontHoop();
     drawBallSprite();
   }
 
-  // Line helper rendered on top of everything
+  drawScoreMessage();
   drawAimGuide();
-  
   drawDebugRim();
 }
 
@@ -767,6 +955,7 @@ function render() {
   ctx.clearRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
   updateBallPhysics();
   drawScene();
+  debug.renderState();
   state.animationFrame = window.requestAnimationFrame(render);
 }
 
@@ -778,18 +967,43 @@ canvas.addEventListener("pointercancel", handlePointerUp);
 canvas.addEventListener("pointerleave", handlePointerUp);
 
 startButton.addEventListener("click", beginGame);
-restartButton.addEventListener("click", resetGame);
+restartButton.addEventListener("click", () => {
+  restartConfirmOverlay.classList.add("visible");
+});
+restartCancelButton.addEventListener("click", () => {
+  restartConfirmOverlay.classList.remove("visible");
+});
+restartConfirmButton.addEventListener("click", () => {
+  restartConfirmOverlay.classList.remove("visible");
+  resetGame();
+});
+helpButton.addEventListener("click", () => {
+  helpOverlay.classList.add("visible");
+});
+helpCloseButton.addEventListener("click", () => {
+  helpOverlay.classList.remove("visible");
+});
+auxCloseButton.addEventListener("click", () => {
+  auxOverlay.classList.remove("visible");
+});
+auxPageButtons.forEach((button) => {
+  button.addEventListener("click", () => {
+    openAuxPage(button.dataset.auxPage);
+  });
+});
 messageButton.addEventListener("click", () => {
   hideOverlay(messageOverlay);
   state.awaitingMessage = false;
-  if (state.shotsMade > 0) {
+  if (state.finished && state.shotsMade >= WIN_THRESHOLD) {
     leadForm.classList.remove("hidden");
+  } else if (state.finished) {
+    resetGame();
   }
 });
 
 leadForm.addEventListener("submit", (event) => {
   event.preventDefault();
-  formFeedback.textContent = "Entry submitted. Press Restart to play again.";
+  formFeedback.textContent = "Η συμμετοχή σου καταχωρήθηκε. Πάτα Επανεκκίνηση για νέα παρτίδα.";
 });
 
 /* ─── Boot ─── */

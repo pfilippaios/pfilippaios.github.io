@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="el">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -18,100 +18,213 @@
         <section class="phone-stage">
           <header class="topbar">
             <div class="brand-lockup">
-              <img class="brand-logo" src="./logo.png" alt="Fysiko Aerio" />
-              <h1>Power Shot</h1>
+              <h1>Hoop Rush</h1>
             </div>
-            <button class="ghost-button" type="button" id="restartButton">
-              Restart
-            </button>
           </header>
           <section class="canvas-panel">
-            <div class="score-strip" aria-label="game status">
+            <button class="restart-fab" type="button" id="restartButton" aria-label="Επανεκκίνηση">
+              <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+                <path fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"
+                  d="M20 12a8 8 0 1 1-2.34-5.66M20 4v5h-5" />
+              </svg>
+            </button>
+            <button class="help-fab" type="button" id="helpButton" aria-label="Βοήθεια">
+              <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+                <path fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"
+                  d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-1 .5-1.5 1.2-1.5 2.2V14" />
+                <circle cx="12" cy="17.5" r="1.2" fill="currentColor" stroke="none" />
+              </svg>
+            </button>
+            <div class="score-strip" aria-label="κατάσταση παιχνιδιού">
               <article>
-                <span class="label">SCORE:</span>
+                <span class="label">ΣΚΟΡ:</span>
                 <strong id="scoreValue">0</strong>
               </article>
               <article>
-                <span class="label">TRIES:</span>
-                <strong id="triesLeft">3</strong>
+                <span class="label">ΠΡΟΣΠΑΘΕΙΕΣ:</span>
+                <strong id="triesLeft">5</strong>
               </article>
             </div>
             <canvas
               id="gameCanvas"
               width="420"
               height="760"
-              aria-label="Basketball game area"
+              aria-label="Περιοχή παιχνιδιού μπάσκετ"
             ></canvas>
 
             <div class="overlay visible" id="startOverlay">
               <div class="overlay-card">
-                <p class="eyebrow">Fysiko Aerio Challenge</p>
-                <h2>Swipe Up. Sink The Shot.</h2>
+                <h2>Hoop Rush</h2>
+                <p class="eyebrow">by FYSIKO&nbsp;AERIO</p>
                 <p>
-                  You have three tries. Drag the ball, release to shoot, and unlock the
-                  winner form.
+                  Μπες στο <strong class="copy-accent">Hoop Rush</strong><br />
+                  και δοκίμασε την ευστοχία σου<br />
+                  με <strong>5 ευκαιρίες</strong> για μεγάλο παιχνίδι.
+                </p>
+                <p>
+                  Πέτυχε <strong class="copy-accent">3 καλάθια</strong><br />
+                  για να ξεκλειδώσεις τη συμμετοχή σου<br />
+                  στην κλήρωση για δώρα από το <strong>Fysiko Aerio</strong>.
                 </p>
                 <button class="primary-button" type="button" id="startButton">
-                  Start Game
+                  Έναρξη
                 </button>
+                <div class="aux-footer">
+                  <nav class="aux-footer-nav" aria-label="Νομικές πληροφορίες">
+                    <button class="aux-link" type="button" data-aux-page="terms">Όροι Χρήσης</button>
+                    <button class="aux-link" type="button" data-aux-page="contest">Πληροφορίες Διαγωνισμού</button>
+                    <button class="aux-link" type="button" data-aux-page="privacy">Προσωπικά Δεδομένα</button>
+                  </nav>
+                  <p class="aux-footer-note">
+                    Η ενέργεια πραγματοποιείται από το ΦΥΣΙΚΟ&nbsp;ΑΕΡΙΟ.
+                    Ισχύουν όροι και προϋποθέσεις.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div class="overlay" id="helpOverlay" aria-live="polite">
+              <div class="overlay-card">
+                <p class="eyebrow">Οδηγίες</p>
+                <h2>Στόχευσε σωστά</h2>
+                <p>
+                  Βρες ρυθμό, πέτυχε <strong class="copy-accent">3 εύστοχα σουτ</strong><br />
+                  και άνοιξε τον δρόμο<br />
+                  για την κλήρωση με <strong>ξεχωριστά δώρα.</strong>
+                </p>
+                <button class="primary-button" type="button" id="helpCloseButton">Κλείσιμο</button>
+                <div class="aux-footer">
+                  <nav class="aux-footer-nav" aria-label="Νομικές πληροφορίες">
+                    <button class="aux-link" type="button" data-aux-page="terms">Όροι Χρήσης</button>
+                    <button class="aux-link" type="button" data-aux-page="contest">Πληροφορίες Διαγωνισμού</button>
+                    <button class="aux-link" type="button" data-aux-page="privacy">Προσωπικά Δεδομένα</button>
+                  </nav>
+                  <p class="aux-footer-note">
+                    Η ενέργεια πραγματοποιείται από το ΦΥΣΙΚΟ&nbsp;ΑΕΡΙΟ.
+                    Ισχύουν όροι και προϋποθέσεις.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div class="overlay" id="restartConfirmOverlay" aria-live="polite">
+              <div class="overlay-card compact">
+                <p class="eyebrow">Επανεκκίνηση</p>
+                <h2>Σίγουρα;</h2>
+                <p>
+                  Θα χάσεις <strong class="copy-accent">την πρόοδό σου</strong><br />
+                  και θα ξεκινήσεις νέα παρτίδα από την αρχή.
+                </p>
+                <div class="button-row">
+                  <button class="primary-button" type="button" id="restartCancelButton">Άκυρο</button>
+                  <button class="primary-button" type="button" id="restartConfirmButton">Ναι, Ξανά</button>
+                </div>
               </div>
             </div>
 
             <div class="overlay" id="messageOverlay" aria-live="polite">
               <div class="overlay-card compact">
-                <p class="eyebrow" id="messageEyebrow">Try Again</p>
-                <h2 id="messageTitle">Good Arc. One More.</h2>
+                <p class="eyebrow" id="messageEyebrow">Δοκίμασε Ξανά</p>
+                <h2 id="messageTitle">Ωραία Τροχιά. Άλλη Μία.</h2>
                 <p id="messageBody">
-                  Adjust the swipe angle and aim just above the rim.
+                  Προσάρμοσε τη γωνία του σουίπ και στόχευσε λίγο πάνω από τη στεφάνη.
                 </p>
                 <button class="primary-button" type="button" id="messageButton">
-                  Continue
+                  Συνέχεια
                 </button>
               </div>
             </div>
 
             <form class="lead-card hidden" id="leadForm">
-              <p class="eyebrow">Winner Form</p>
-              <h2>You Scored</h2>
-              <p>Fill in your details to claim your Fysiko Aerio prize opportunity.</p>
+              <div class="lead-copy">
+                <p class="eyebrow">Πίσω από τα φώτα</p>
+                <h2>Συμμετοχή στην κλήρωση</h2>
+                <p>
+                  Ολοκλήρωσες το <strong class="copy-accent">Hoop Rush</strong><br />
+                  και ξεκλείδωσες τη φόρμα συμμετοχής.
+                </p>
+                <p>
+                  Συμπλήρωσε τα στοιχεία σου για να καταχωρήσεις<br />
+                  τη συμμετοχή σου στην κλήρωση για δώρα<br />
+                  από το <strong class="copy-accent">Fysiko Aerio</strong>.
+                </p>
+              </div>
 
-              <label>
-                Full name
-                <input type="text" name="name" placeholder="Your name" required />
-              </label>
+              <div class="form-fields">
+                <label>
+                  Όνομα & Επώνυμο
+                  <input type="text" name="name" placeholder="Το όνομά σου" required />
+                </label>
 
-              <label>
-                Email
-                <input type="email" name="email" placeholder="you@example.com" required />
-              </label>
+                <label>
+                  E-mail
+                  <input type="email" name="email" placeholder="you@example.com" required />
+                </label>
 
-              <label>
-                Phone
-                <input type="tel" name="phone" placeholder="+30 69XXXXXXXX" required />
-              </label>
+                <label>
+                  Τηλέφωνο
+                  <input type="tel" name="phone" placeholder="+30 69XXXXXXXX" required />
+                </label>
 
-              <label>
-                City
-                <input type="text" name="city" placeholder="Athens" required />
-              </label>
+                <label>
+                  Πόλη
+                  <input type="text" name="city" placeholder="Αθήνα" required />
+                </label>
 
-              <button class="primary-button" type="submit">Submit Entry</button>
-              <p class="form-note" id="formFeedback" aria-live="polite"></p>
+                <button class="primary-button" type="submit">Υποβολή</button>
+              </div>
+              <p class="form-note" id="formFeedback" aria-live="polite">
+                Η συμμετοχή σου καταχωρείται μόνο μετά την υποβολή της φόρμας.
+              </p>
+              <div class="aux-footer">
+                <nav class="aux-footer-nav" aria-label="Νομικές πληροφορίες">
+                  <button class="aux-link" type="button" data-aux-page="terms">Όροι Χρήσης</button>
+                  <button class="aux-link" type="button" data-aux-page="contest">Πληροφορίες Διαγωνισμού</button>
+                  <button class="aux-link" type="button" data-aux-page="privacy">Προσωπικά Δεδομένα</button>
+                </nav>
+                <p class="aux-footer-note">
+                  Η ενέργεια πραγματοποιείται από το ΦΥΣΙΚΟ&nbsp;ΑΕΡΙΟ.
+                  Ισχύουν όροι και προϋποθέσεις.
+                </p>
+              </div>
             </form>
+
+            <div class="overlay" id="auxOverlay" aria-live="polite">
+              <div class="overlay-card aux-overlay-card">
+                <p class="eyebrow">Πληροφορίες</p>
+                <h2 id="auxOverlayTitle">Όροι Χρήσης</h2>
+                <div class="aux-content" id="auxOverlayContent"></div>
+                <button class="primary-button" type="button" id="auxCloseButton">Κλείσιμο</button>
+              </div>
+            </div>
           </section>
 
+          <footer class="stage-footer" aria-label="Fysiko Aerio">
+            <img class="stage-footer-logo" src="./logo.png" alt="Fysiko Aerio" />
+          </footer>
+
           <div class="tips-card">
-            <p class="eyebrow">How To Play</p>
+            <p class="eyebrow">Πώς Παίζεται</p>
             <ul>
-              <li>Press and drag from the ball to set your shot.</li>
-              <li>The arc preview shows your launch path.</li>
-              <li>Your last try gets a power boost so every player reaches the prize form.</li>
+              <li>Πάτα και σύρε τη μπάλα για να ρυθμίσεις δύναμη και κατεύθυνση.</li>
+              <li>Η γραμμή προεπισκόπησης σε βοηθά να καταλάβεις πού θα κινηθεί το σουτ.</li>
+              <li>Έχεις 5 συνολικές προσπάθειες, οπότε κάθε σουτ μετράει.</li>
+              <li>Με 3 εύστοχα καλάθια ξεκλειδώνεις τη φόρμα συμμετοχής για το δώρο.</li>
             </ul>
           </div>
         </section>
       </main>
     </div>
 
+    <div id="debugPanel">
+      <div class="debug-head">
+        <strong>DEBUG</strong>
+        <button type="button" id="debugClear">clear</button>
+        <button type="button" id="debugToggle">hide</button>
+      </div>
+      <pre id="debugState"></pre>
+      <div id="debugLog"></div>
+    </div>
     <script src="./game.js"></script>
   </body>
 </html>
