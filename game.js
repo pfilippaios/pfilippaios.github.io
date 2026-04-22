@@ -50,7 +50,7 @@ function onAssetLoad() {
   if (assetsLoaded >= TOTAL_ASSETS) {
     setupCanvas();
     resetBall();
-    // resetBird(true);
+    resetBird(true);
     updateHud();
     render();
   }
@@ -400,98 +400,6 @@ const bird = {
   frameTick: 0,
   frameInterval: BIRD_FLIGHT_BAND.frameInterval,
 };
-
-/* ─── Crowd (pixel silhouettes cheering on seats) ─── */
-const CROWD_ROWS = [
-  // Left stands — visible slice beside backboard/post, tiered further back
-  { xMin: 4,  xMax: 78,  y: 195, count: 9,  scale: 0.65 },
-  { xMin: 4,  xMax: 80,  y: 225, count: 9,  scale: 0.72 },
-  { xMin: 4,  xMax: 82,  y: 260, count: 9,  scale: 0.80 },
-  { xMin: 4,  xMax: 84,  y: 300, count: 9,  scale: 0.90 },
-  { xMin: 4,  xMax: 86,  y: 345, count: 9,  scale: 1.00 },
-  { xMin: 4,  xMax: 88,  y: 395, count: 9,  scale: 1.10 },
-  { xMin: 4,  xMax: 90,  y: 445, count: 9,  scale: 1.22 },
-  // Right stands — mirror
-  { xMin: 342, xMax: 416, y: 195, count: 9,  scale: 0.65 },
-  { xMin: 340, xMax: 416, y: 225, count: 9,  scale: 0.72 },
-  { xMin: 338, xMax: 416, y: 260, count: 9,  scale: 0.80 },
-  { xMin: 336, xMax: 416, y: 300, count: 9,  scale: 0.90 },
-  { xMin: 334, xMax: 416, y: 345, count: 9,  scale: 1.00 },
-  { xMin: 332, xMax: 416, y: 395, count: 9,  scale: 1.10 },
-  { xMin: 330, xMax: 416, y: 445, count: 9,  scale: 1.22 },
-];
-
-// Darker-than-seats but still visible silhouettes
-const CROWD_BODY_COLORS = [
-  "#0a0612", "#120818", "#1a0e1e", "#06040e", "#140a1a",
-  "#221016", "#0e0a18", "#180c1e",
-];
-const CROWD_HEAD_COLORS = [
-  "#3a2a20", "#2a1f18", "#402e20", "#28201a", "#4a3424",
-];
-
-const crowd = [];
-function generateCrowd() {
-  crowd.length = 0;
-  for (const row of CROWD_ROWS) {
-    const step = (row.xMax - row.xMin) / row.count;
-    for (let i = 0; i < row.count; i++) {
-      const jitterX = (Math.random() - 0.5) * step * 0.45;
-      const jitterY = (Math.random() - 0.5) * 2.5;
-      crowd.push({
-        x: row.xMin + step * (i + 0.5) + jitterX,
-        y: row.y + jitterY,
-        scale: row.scale * (0.9 + Math.random() * 0.25),
-        body: CROWD_BODY_COLORS[Math.floor(Math.random() * CROWD_BODY_COLORS.length)],
-        head: CROWD_HEAD_COLORS[Math.floor(Math.random() * CROWD_HEAD_COLORS.length)],
-        bobPhase: Math.random() * Math.PI * 2,
-        bobSpeed: 0.003 + Math.random() * 0.004,
-        armPhase: Math.random() * Math.PI * 2,
-        armSpeed: 0.005 + Math.random() * 0.009,
-        armBias: Math.random(),
-      });
-    }
-  }
-}
-
-function drawCrowd() {
-  const now = performance.now();
-  ctx.imageSmoothingEnabled = false;
-  for (const p of crowd) {
-    const bob = Math.sin(now * p.bobSpeed + p.bobPhase) * 1.4;
-    const armCycle = (Math.sin(now * p.armSpeed + p.armPhase) + 1) * 0.5;
-    const armsUp = armCycle > 0.45 + p.armBias * 0.25;
-    const s = p.scale;
-    const bw = Math.max(2, Math.round(3 * s));
-    const bh = Math.max(3, Math.round(4 * s));
-    const hw = Math.max(2, Math.round(2 * s));
-    const hh = Math.max(2, Math.round(2 * s));
-    const x = Math.round(p.x - bw / 2);
-    const y = Math.round(p.y + bob);
-
-    ctx.fillStyle = p.body;
-    ctx.fillRect(x, y, bw, bh);
-
-    ctx.fillStyle = p.head;
-    ctx.fillRect(x + Math.floor((bw - hw) / 2), y - hh, hw, hh);
-
-    if (armsUp) {
-      const armH = Math.max(2, Math.round(3 * s));
-      const armW = Math.max(1, Math.round(1 * s));
-      const armRise = Math.round(armCycle * 2);
-      ctx.fillStyle = p.head;
-      ctx.fillRect(x - armW, y - hh - armRise, armW, armH);
-      ctx.fillRect(x + bw, y - hh - armRise, armW, armH);
-    } else {
-      ctx.fillStyle = p.body;
-      ctx.fillRect(x - 1, y + 1, 1, Math.max(2, Math.round(2 * s)));
-      ctx.fillRect(x + bw, y + 1, 1, Math.max(2, Math.round(2 * s)));
-    }
-  }
-  ctx.imageSmoothingEnabled = true;
-}
-
-generateCrowd();
 
 function resetBird(initialSpawn = false) {
   bird.direction = Math.random() > 0.5 ? 1 : -1;
@@ -1917,8 +1825,7 @@ function drawDebugRim() {
 /* ─── Main draw ─── */
 function drawScene() {
   drawBackground();
-  drawCrowd();
-  // drawBird();
+  drawBird();
   drawAssistGlow();
 
   drawBallShadowAndTrail();
@@ -1947,7 +1854,7 @@ function drawScene() {
 
 function render() {
   ctx.clearRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
-  // updateBird();
+  updateBird();
   updateBallPhysics();
   updateNetAnimation();
   updateParticles();
