@@ -37,14 +37,18 @@
             </button>
             <div class="score-strip" aria-label="κατάσταση παιχνιδιού">
               <article>
-                <span class="label">ΣΚΟΡ:</span>
-                <strong id="scoreValue">0</strong>
+                <span class="label">Καλάθια</span>
+                <strong id="madeValue">0/3</strong>
               </article>
               <article>
-                <span class="label">ΠΡΟΣΠΑΘΕΙΕΣ:</span>
-                <strong id="triesLeft">5</strong>
+                <span class="label">Βολές</span>
+                <strong id="triesLeft">5/5</strong>
               </article>
             </div>
+            <div class="assist-banner hidden" id="assistBanner" aria-live="polite">
+              Βοήθεια στόχευσης
+            </div>
+            <div class="status-toast" id="statusToast" aria-live="polite"></div>
             <canvas
               id="gameCanvas"
               width="420"
@@ -55,7 +59,7 @@
             <div class="overlay visible" id="startOverlay">
               <div class="overlay-card">
                 <h2>Hoop Rush</h2>
-                <p class="eyebrow">by FYSIKO&nbsp;AERIO</p>
+                <p class="eyebrow">By Fysiko&nbsp;Aerio</p>
                 <p>
                   Μπες στο <strong class="copy-accent">Hoop Rush</strong><br />
                   και δοκίμασε την ευστοχία σου<br />
@@ -67,16 +71,16 @@
                   στην κλήρωση για δώρα από το <strong>Fysiko Aerio</strong>.
                 </p>
                 <button class="primary-button" type="button" id="startButton">
-                  Έναρξη
+                  Πάμε να παίξουμε
                 </button>
                 <div class="aux-footer">
                   <nav class="aux-footer-nav" aria-label="Νομικές πληροφορίες">
-                    <button class="aux-link" type="button" data-aux-page="terms">Όροι Χρήσης</button>
-                    <button class="aux-link" type="button" data-aux-page="contest">Πληροφορίες Διαγωνισμού</button>
-                    <button class="aux-link" type="button" data-aux-page="privacy">Προσωπικά Δεδομένα</button>
+                    <button class="aux-link" type="button" data-aux-page="terms">Όροι χρήσης</button>
+                    <button class="aux-link" type="button" data-aux-page="contest">Πληροφορίες διαγωνισμού</button>
+                    <button class="aux-link" type="button" data-aux-page="privacy">Προσωπικά δεδομένα</button>
                   </nav>
                   <p class="aux-footer-note">
-                    Η ενέργεια πραγματοποιείται από το ΦΥΣΙΚΟ&nbsp;ΑΕΡΙΟ.
+                    Η ενέργεια πραγματοποιείται από το Fysiko&nbsp;Aerio.
                     Ισχύουν όροι και προϋποθέσεις.
                   </p>
                 </div>
@@ -92,15 +96,15 @@
                   και άνοιξε τον δρόμο<br />
                   για την κλήρωση με <strong>ξεχωριστά δώρα.</strong>
                 </p>
-                <button class="primary-button" type="button" id="helpCloseButton">Κλείσιμο</button>
+                <button class="primary-button" type="button" id="helpCloseButton">Πάμε</button>
                 <div class="aux-footer">
                   <nav class="aux-footer-nav" aria-label="Νομικές πληροφορίες">
-                    <button class="aux-link" type="button" data-aux-page="terms">Όροι Χρήσης</button>
-                    <button class="aux-link" type="button" data-aux-page="contest">Πληροφορίες Διαγωνισμού</button>
-                    <button class="aux-link" type="button" data-aux-page="privacy">Προσωπικά Δεδομένα</button>
+                    <button class="aux-link" type="button" data-aux-page="terms">Όροι χρήσης</button>
+                    <button class="aux-link" type="button" data-aux-page="contest">Πληροφορίες διαγωνισμού</button>
+                    <button class="aux-link" type="button" data-aux-page="privacy">Προσωπικά δεδομένα</button>
                   </nav>
                   <p class="aux-footer-note">
-                    Η ενέργεια πραγματοποιείται από το ΦΥΣΙΚΟ&nbsp;ΑΕΡΙΟ.
+                    Η ενέργεια πραγματοποιείται από το Fysiko&nbsp;Aerio.
                     Ισχύουν όροι και προϋποθέσεις.
                   </p>
                 </div>
@@ -116,33 +120,31 @@
                   και θα ξεκινήσεις νέα παρτίδα από την αρχή.
                 </p>
                 <div class="button-row">
-                  <button class="primary-button" type="button" id="restartCancelButton">Άκυρο</button>
-                  <button class="primary-button" type="button" id="restartConfirmButton">Ναι, Ξανά</button>
+                  <button class="primary-button" type="button" id="restartCancelButton">Συνέχεια</button>
+                  <button class="primary-button" type="button" id="restartConfirmButton">Νέα παρτίδα</button>
                 </div>
               </div>
             </div>
 
             <div class="overlay" id="messageOverlay" aria-live="polite">
               <div class="overlay-card compact">
-                <p class="eyebrow" id="messageEyebrow">Δοκίμασε Ξανά</p>
-                <h2 id="messageTitle">Ωραία Τροχιά. Άλλη Μία.</h2>
+                <p class="eyebrow" id="messageEyebrow">Δοκίμασε ξανά</p>
+                <h2 id="messageTitle">Ωραία τροχιά. Άλλη μία.</h2>
                 <p id="messageBody">
                   Προσάρμοσε τη γωνία του σουίπ και στόχευσε λίγο πάνω από τη στεφάνη.
                 </p>
                 <button class="primary-button" type="button" id="messageButton">
-                  Συνέχεια
+                  Πάμε
+                </button>
+                <button class="secondary-button hidden" type="button" id="replayButton">
+                  Παίξε ξανά
                 </button>
               </div>
             </div>
 
             <form class="lead-card hidden" id="leadForm">
               <div class="lead-copy">
-                <p class="eyebrow">Πίσω από τα φώτα</p>
                 <h2>Συμμετοχή στην κλήρωση</h2>
-                <p>
-                  Ολοκλήρωσες το <strong class="copy-accent">Hoop Rush</strong><br />
-                  και ξεκλείδωσες τη φόρμα συμμετοχής.
-                </p>
                 <p>
                   Συμπλήρωσε τα στοιχεία σου για να καταχωρήσεις<br />
                   τη συμμετοχή σου στην κλήρωση για δώρα<br />
@@ -151,25 +153,25 @@
               </div>
 
               <div class="form-fields">
-                <label>
-                  Όνομα & Επώνυμο
-                  <input type="text" name="name" placeholder="Το όνομά σου" required />
-                </label>
+                <div class="form-field">
+                  <label for="fieldName">Όνομα & επώνυμο <span class="req">*</span></label>
+                  <input type="text" name="name" id="fieldName" required />
+                </div>
 
-                <label>
-                  E-mail
-                  <input type="email" name="email" placeholder="you@example.com" required />
-                </label>
+                <div class="form-field">
+                  <label for="fieldEmail">E-mail <span class="req">*</span></label>
+                  <input type="email" name="email" id="fieldEmail" required />
+                </div>
 
-                <label>
-                  Τηλέφωνο
-                  <input type="tel" name="phone" placeholder="+30 69XXXXXXXX" required />
-                </label>
+                <div class="form-field">
+                  <label for="fieldPhone">Τηλέφωνο <span class="req">*</span></label>
+                  <input type="tel" name="phone" id="fieldPhone" required />
+                </div>
 
-                <label>
-                  Πόλη
-                  <input type="text" name="city" placeholder="Αθήνα" required />
-                </label>
+                <div class="form-field">
+                  <label for="fieldCity">Πόλη <span class="req">*</span></label>
+                  <input type="text" name="city" id="fieldCity" required />
+                </div>
 
                 <button class="primary-button" type="submit">Υποβολή</button>
               </div>
@@ -178,12 +180,12 @@
               </p>
               <div class="aux-footer">
                 <nav class="aux-footer-nav" aria-label="Νομικές πληροφορίες">
-                  <button class="aux-link" type="button" data-aux-page="terms">Όροι Χρήσης</button>
-                  <button class="aux-link" type="button" data-aux-page="contest">Πληροφορίες Διαγωνισμού</button>
-                  <button class="aux-link" type="button" data-aux-page="privacy">Προσωπικά Δεδομένα</button>
+                  <button class="aux-link" type="button" data-aux-page="terms">Όροι χρήσης</button>
+                  <button class="aux-link" type="button" data-aux-page="contest">Πληροφορίες διαγωνισμού</button>
+                  <button class="aux-link" type="button" data-aux-page="privacy">Προσωπικά δεδομένα</button>
                 </nav>
                 <p class="aux-footer-note">
-                  Η ενέργεια πραγματοποιείται από το ΦΥΣΙΚΟ&nbsp;ΑΕΡΙΟ.
+                  Η ενέργεια πραγματοποιείται από το Fysiko&nbsp;Aerio.
                   Ισχύουν όροι και προϋποθέσεις.
                 </p>
               </div>
@@ -192,9 +194,9 @@
             <div class="overlay" id="auxOverlay" aria-live="polite">
               <div class="overlay-card aux-overlay-card">
                 <p class="eyebrow">Πληροφορίες</p>
-                <h2 id="auxOverlayTitle">Όροι Χρήσης</h2>
+                <h2 id="auxOverlayTitle">Όροι χρήσης</h2>
                 <div class="aux-content" id="auxOverlayContent"></div>
-                <button class="primary-button" type="button" id="auxCloseButton">Κλείσιμο</button>
+                <button class="primary-button" type="button" id="auxCloseButton">Επιστροφή</button>
               </div>
             </div>
           </section>
@@ -204,7 +206,7 @@
           </footer>
 
           <div class="tips-card">
-            <p class="eyebrow">Πώς Παίζεται</p>
+            <p class="eyebrow">Πώς παίζεται</p>
             <ul>
               <li>Πάτα και σύρε τη μπάλα για να ρυθμίσεις δύναμη και κατεύθυνση.</li>
               <li>Η γραμμή προεπισκόπησης σε βοηθά να καταλάβεις πού θα κινηθεί το σουτ.</li>
@@ -218,9 +220,21 @@
 
     <div id="debugPanel">
       <div class="debug-head">
-        <strong>DEBUG</strong>
-        <button type="button" id="debugClear">clear</button>
-        <button type="button" id="debugToggle">hide</button>
+        <strong>Debug</strong>
+        <button type="button" id="debugClear">Clear</button>
+        <button type="button" id="debugToggle">Hide</button>
+      </div>
+      <div class="debug-modals">
+        <button type="button" data-dbg-modal="start">Start</button>
+        <button type="button" data-dbg-modal="help">Help</button>
+        <button type="button" data-dbg-modal="restart">Restart</button>
+        <button type="button" data-dbg-modal="win">Win</button>
+        <button type="button" data-dbg-modal="loss">Loss</button>
+        <button type="button" data-dbg-modal="form">Form</button>
+        <button type="button" data-dbg-modal="terms">Terms</button>
+        <button type="button" data-dbg-modal="contest">Contest</button>
+        <button type="button" data-dbg-modal="privacy">Privacy</button>
+        <button type="button" id="dbgHideAll" style="background:#3a1a1a;border-color:#6a2a2a;color:#ff9d9d;">Hide all</button>
       </div>
       <pre id="debugState"></pre>
       <div id="debugLog"></div>
