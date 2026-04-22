@@ -52,7 +52,8 @@ body {
 
 .app-shell {
   width: 100%;
-  height: 100vh;
+  min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
   background:
@@ -71,13 +72,13 @@ body {
   display: flex;
   justify-content: center;
   align-items: center;
-  padding: 20px;
+  padding: clamp(12px, 2.8vw, 20px);
 }
 
 .phone-stage {
-  width: min(100%, 430px);
-  aspect-ratio: 9 / 16;
-  max-height: 90vh;
+  --stage-chrome: 96px;
+  width: min(100%, 430px, calc((min(90vh, 90dvh) - var(--stage-chrome)) * 420 / 760));
+  max-height: min(90vh, 90dvh);
   position: relative;
   background: #1a1020;
   border: 3px solid #3a2a40;
@@ -92,27 +93,45 @@ body {
 .topbar {
   background: linear-gradient(180deg, #2a2040, #1a1030);
   border-bottom: 2px solid #3a2a45;
-  padding: 8px 14px;
+  padding: clamp(10px, 2.2vw, 12px) clamp(14px, 3vw, 18px) clamp(12px, 2.6vw, 14px);
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  height: 52px;
+  min-height: clamp(72px, 11vw, 84px);
   flex-shrink: 0;
 }
 
 .brand-lockup {
   grid-column: 2;
   justify-self: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(6px, 1.6vw, 8px);
+  margin: 4px 0 2px;
+  max-width: min(100%, 220px);
+}
+
+.brand-logo {
+  display: block;
+  height: clamp(28px, 6vw, 38px);
+  width: auto;
+  max-width: min(100%, 190px);
+  transform: none;
 }
 
 .brand-lockup h1 {
   font-family: 'Bergen Sans', 'Press Start 2P', cursive;
   font-weight: 600;
-  font-size: 16px;
+  font-size: clamp(17px, 3.9vw, 20px);
   margin: 0;
   color: var(--text-pixel);
   text-transform: none;
-  letter-spacing: 0.6px;
+  letter-spacing: clamp(0.4px, 0.18vw, 0.8px);
+  line-height: 0.95;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.28);
+  transform: none;
+  text-align: center;
 }
 
 /* Round arcade buttons — in-canvas top-left */
@@ -264,38 +283,23 @@ body {
 
 .canvas-panel {
   flex: 1;
+  min-height: 0;
   position: relative;
   overflow: hidden;
-}
-
-.stage-footer {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 52px;
-  display: grid;
-  place-items: center;
-  padding: 8px 18px 10px;
-  background: linear-gradient(180deg, rgba(17, 10, 27, 0.9), rgba(10, 7, 18, 0.98));
-  border-top: 1px solid rgba(94, 200, 212, 0.18);
-  z-index: 12;
-  pointer-events: none;
-}
-
-.stage-footer-logo {
-  height: 38px;
-  max-width: 100%;
-  width: auto;
-  opacity: 0.82;
-  filter: saturate(0.92);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #000;
 }
 
 canvas {
-  width: 100%;
-  height: 100%;
   display: block;
   touch-action: none;
+  aspect-ratio: 420 / 760;
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 100%;
 }
 
 /* Overlays & Cards */
@@ -306,7 +310,7 @@ canvas {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 24px 24px 86px;
+  padding: clamp(16px, 4vw, 24px) clamp(16px, 4vw, 24px) clamp(28px, 8vw, 86px);
   z-index: 10;
   opacity: 0;
   visibility: hidden;
@@ -321,7 +325,7 @@ canvas {
 .overlay-card, .lead-card {
   background: linear-gradient(180deg, #2a2040, #1a1030);
   border: 3px solid #4a3a55;
-  padding: 24px;
+  padding: clamp(18px, 4.5vw, 24px);
   width: 100%;
   border-radius: 4px;
   box-shadow: 0 8px 24px rgba(0,0,0,0.5);
@@ -547,6 +551,19 @@ canvas {
   margin-top: 10px;
   padding-top: 10px;
   border-top: 1px solid rgba(94, 200, 212, 0.35);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.aux-footer-logo {
+  display: block;
+  height: 48px;
+  width: auto;
+  max-width: min(100%, 240px);
+  opacity: 0.9;
+  filter: saturate(0.94);
 }
 
 .aux-footer-nav {
@@ -554,7 +571,7 @@ canvas {
   justify-content: center;
   flex-wrap: wrap;
   gap: 8px 14px;
-  margin-bottom: 10px;
+  margin-bottom: 0;
 }
 
 .aux-link {
@@ -739,13 +756,26 @@ canvas {
   }
   .phone-stage {
     width: 100vw;
-    height: 100vh;
-    max-height: none;
+    height: 100dvh;
+    max-height: 100dvh;
     border: none;
     border-radius: 0;
   }
   .app-shell {
     background: var(--bg-deep);
+  }
+  .topbar {
+    display: none;
+  }
+  canvas {
+    width: max(100vw, calc(100dvh * 420 / 760));
+    height: max(100dvh, calc(100vw * 760 / 420));
+    min-width: 0;
+    min-height: 0;
+    max-width: none;
+    max-height: none;
+    flex-shrink: 0;
+    aspect-ratio: auto;
   }
   .aux-footer-nav {
     gap: 6px 10px;
@@ -776,5 +806,153 @@ canvas {
   .status-toast {
     top: 104px;
     font-size: 12px;
+  }
+  .overlay {
+    align-items: center;
+    padding: 12px 12px 18px;
+    overflow-y: auto;
+  }
+  .overlay-card,
+  .lead-card {
+    width: min(100%, 380px);
+  }
+  .overlay-card h2,
+  .lead-card h2 {
+    font-size: clamp(22px, 6vw, 26px);
+    margin-bottom: 10px;
+  }
+  .overlay-card p,
+  .lead-card p {
+    line-height: 1.55;
+    margin-bottom: 14px;
+  }
+  .lead-card {
+    padding: 52px 14px 14px;
+  }
+}
+
+@media (max-width: 420px) {
+  .topbar {
+    min-height: 70px;
+    padding: 8px 10px 10px;
+  }
+  .brand-lockup {
+    max-width: 172px;
+    gap: 5px;
+  }
+  .brand-logo {
+    height: 28px;
+    max-width: 148px;
+  }
+  .brand-lockup h1 {
+    font-size: 16px;
+    letter-spacing: 0.3px;
+  }
+  .restart-fab,
+  .help-fab {
+    width: 38px;
+    height: 38px;
+    top: 8px;
+  }
+  .restart-fab { left: 8px; }
+  .help-fab { left: 54px; }
+  .score-strip {
+    top: 8px;
+    left: 98px;
+    right: 8px;
+    gap: 4px;
+  }
+  .score-strip article {
+    padding: 5px 6px;
+    gap: 3px;
+  }
+  .score-strip .label {
+    font-size: 7px;
+    letter-spacing: 0.2px;
+  }
+  .score-strip strong {
+    font-size: 12px;
+  }
+  .assist-banner {
+    top: 60px;
+    left: 10px;
+    right: 10px;
+    padding: 6px 10px;
+    font-size: 9px;
+  }
+  .status-toast {
+    top: 92px;
+    left: 10px;
+    right: 10px;
+    padding: 9px 12px;
+    font-size: 11px;
+  }
+  .overlay-card,
+  .lead-card {
+    padding: 16px 14px;
+  }
+  .primary-button,
+  .secondary-button {
+    font-size: 15px;
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+  .aux-footer-logo {
+    height: 42px;
+    max-width: 200px;
+  }
+}
+
+@media (max-height: 760px) {
+  .game-layout {
+    padding: 10px;
+  }
+  .phone-stage {
+    --stage-chrome: 80px;
+    width: min(100%, calc((100dvh - 20px - var(--stage-chrome)) * 420 / 760));
+    max-height: calc(100dvh - 20px);
+  }
+  .topbar {
+    min-height: 68px;
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
+  .brand-lockup {
+    gap: 4px;
+    margin: 2px 0;
+  }
+  .brand-logo {
+    height: 28px;
+  }
+  .brand-lockup h1 {
+    font-size: 16px;
+  }
+  .assist-banner {
+    top: 58px;
+  }
+  .status-toast {
+    top: 90px;
+  }
+  .overlay {
+    padding-top: 10px;
+    padding-bottom: 12px;
+  }
+  .overlay-card,
+  .lead-card {
+    padding: 16px;
+  }
+  .overlay-card h2,
+  .lead-card h2 {
+    font-size: 22px;
+    margin-bottom: 10px;
+  }
+  .overlay-card p,
+  .lead-card p {
+    font-size: 13px;
+    line-height: 1.5;
+    margin-bottom: 12px;
+  }
+  .lead-card {
+    padding-top: 48px;
   }
 }

@@ -89,6 +89,7 @@ const birdFrames = Array.from({ length: 8 }, (_, index) => {
 
 const TEST_MODE = false;
 const SLOW_MO = 1.0;
+const DEBUG_ENABLED = false;
 
 /* ─── Debug panel ─── */
 const debugPanel = document.getElementById("debugPanel");
@@ -142,22 +143,32 @@ ball.vx=${b.vx.toFixed(2)} vy=${b.vy.toFixed(2)} flight=${b.flightTime || 0}`;
   },
 };
 
-if (debugClearBtn) debugClearBtn.addEventListener("click", () => debug.clear());
-if (debugToggleBtn) debugToggleBtn.addEventListener("click", () => {
-  debugPanel.classList.toggle("collapsed");
-  debugToggleBtn.textContent = debugPanel.classList.contains("collapsed") ? "Show" : "Hide";
-});
-// Keyboard toggle: D key
-window.addEventListener("keydown", (e) => {
-  if (e.key === "d" || e.key === "D") {
+if (!DEBUG_ENABLED && debugPanel) {
+  debugPanel.hidden = true;
+  debugPanel.style.display = "none";
+}
+
+if (DEBUG_ENABLED && debugClearBtn) {
+  debugClearBtn.addEventListener("click", () => debug.clear());
+}
+if (DEBUG_ENABLED && debugToggleBtn) {
+  debugToggleBtn.addEventListener("click", () => {
     debugPanel.classList.toggle("collapsed");
-    if (debugToggleBtn) debugToggleBtn.textContent = debugPanel.classList.contains("collapsed") ? "Show" : "Hide";
-  }
-  if (e.key === "l" || e.key === "L") {
-    debug.download();
-  }
-});
-debug.log("boot", "evt");
+    debugToggleBtn.textContent = debugPanel.classList.contains("collapsed") ? "Show" : "Hide";
+  });
+}
+if (DEBUG_ENABLED) {
+  window.addEventListener("keydown", (e) => {
+    if (e.key === "d" || e.key === "D") {
+      debugPanel.classList.toggle("collapsed");
+      if (debugToggleBtn) debugToggleBtn.textContent = debugPanel.classList.contains("collapsed") ? "Show" : "Hide";
+    }
+    if (e.key === "l" || e.key === "L") {
+      debug.download();
+    }
+  });
+  debug.log("boot", "evt");
+}
 
 /* ─── Constants ─── */
 const DPR = Math.max(window.devicePixelRatio || 1, 1);
@@ -174,7 +185,7 @@ const AUX_PAGES = {
     title: "Όροι χρήσης",
     body: `
       <h3>Χρήση της εμπειρίας</h3>
-      <p>Το Hoop Rush είναι μια διαδραστική προωθητική εμπειρία του Fysiko&nbsp;Aerio. Η χρήση της εφαρμογής προϋποθέτει αποδοχή των όρων που διέπουν τη συμμετοχή και την ορθή χρήση της.</p>
+      <p>Το Hoop Rush είναι μια διαδραστική προωθητική εμπειρία του ΦΥΣΙΚΟ&nbsp;ΑΕΡΙΟ. Η χρήση της εφαρμογής προϋποθέτει αποδοχή των όρων που διέπουν τη συμμετοχή και την ορθή χρήση της.</p>
       <ul>
         <li>Η συμμετοχή ολοκληρώνεται μόνο μετά την επιτυχή υποβολή της φόρμας.</li>
         <li>Κάθε συμμετέχων χρησιμοποιεί τα πραγματικά του στοιχεία.</li>
@@ -345,8 +356,6 @@ function updateBird() {
 function setupCanvas() {
   canvas.width = GAME_WIDTH * DPR;
   canvas.height = GAME_HEIGHT * DPR;
-  canvas.style.width = "100%";
-  canvas.style.height = "100%";
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
 }
 
@@ -518,11 +527,10 @@ function setAssistMode() {
 function showWinOverlay() {
   state.finished = true;
   debug.log(`WIN made=${state.shotsMade}/${WIN_THRESHOLD}`, "evt");
-  debug.download();
   showOverlay({
     eyebrow: "Νικητής",
     title: "Τα κατάφερες",
-    body: "Συμπλήρωσε τη φόρμα για να διεκδικήσεις το δώρο Fysiko Aerio.",
+    body: "Συμπλήρωσε τη φόρμα για να διεκδικήσεις το δώρο ΦΥΣΙΚΟ ΑΕΡΙΟ.",
     buttonLabel: "Πάμε στη φόρμα",
     showReplay: true,
   });
@@ -531,7 +539,6 @@ function showWinOverlay() {
 function showLossOverlay() {
   state.finished = true;
   debug.log(`LOSS made=${state.shotsMade}/${WIN_THRESHOLD}`, "err");
-  debug.download();
   showOverlay({
     eyebrow: "Τέλος",
     title: "Δεν τα κατάφερες",
@@ -1236,7 +1243,7 @@ function drawScene() {
 
   drawScoreMessage();
   drawAimGuide();
-  drawDebugRim();
+  if (DEBUG_ENABLED) drawDebugRim();
 }
 
 function render() {
@@ -1244,7 +1251,9 @@ function render() {
   updateBird();
   updateBallPhysics();
   drawScene();
-  debug.renderState();
+  if (DEBUG_ENABLED) {
+    debug.renderState();
+  }
   state.animationFrame = window.requestAnimationFrame(render);
 }
 
@@ -1302,60 +1311,62 @@ leadForm.addEventListener("submit", (event) => {
 });
 
 /* ─── Debug modal triggers ─── */
-document.querySelectorAll("[data-dbg-modal]").forEach((btn) => {
-  btn.addEventListener("click", () => {
-    const key = btn.dataset.dbgModal;
-    switch (key) {
-      case "start":
-        startOverlay.classList.add("visible");
-        break;
-      case "help":
-        helpOverlay.classList.add("visible");
-        break;
-      case "restart":
-        restartConfirmOverlay.classList.add("visible");
-        break;
-      case "win":
-        showOverlay({
-          eyebrow: "Νικητής",
-          title: "Τα κατάφερες",
-          body: "Συμπλήρωσε τη φόρμα για να διεκδικήσεις το δώρο Fysiko Aerio.",
-          buttonLabel: "Πάμε στη φόρμα",
-        });
-        break;
-      case "loss":
-        showOverlay({
-          eyebrow: "Τέλος",
-          title: "Δεν τα κατάφερες",
-          body: "Δοκίμασε ξανά!",
-          buttonLabel: "Παίξε ξανά",
-        });
-        break;
-      case "form":
-        leadForm.classList.remove("hidden");
-        break;
-      case "terms":
-        openAuxPage("terms");
-        break;
-      case "contest":
-        openAuxPage("contest");
-        break;
-      case "privacy":
-        openAuxPage("privacy");
-        break;
-    }
+if (DEBUG_ENABLED) {
+  document.querySelectorAll("[data-dbg-modal]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const key = btn.dataset.dbgModal;
+      switch (key) {
+        case "start":
+          startOverlay.classList.add("visible");
+          break;
+        case "help":
+          helpOverlay.classList.add("visible");
+          break;
+        case "restart":
+          restartConfirmOverlay.classList.add("visible");
+          break;
+        case "win":
+          showOverlay({
+            eyebrow: "Νικητής",
+            title: "Τα κατάφερες",
+            body: "Συμπλήρωσε τη φόρμα για να διεκδικήσεις το δώρο ΦΥΣΙΚΟ ΑΕΡΙΟ.",
+            buttonLabel: "Πάμε στη φόρμα",
+          });
+          break;
+        case "loss":
+          showOverlay({
+            eyebrow: "Τέλος",
+            title: "Δεν τα κατάφερες",
+            body: "Δοκίμασε ξανά!",
+            buttonLabel: "Παίξε ξανά",
+          });
+          break;
+        case "form":
+          leadForm.classList.remove("hidden");
+          break;
+        case "terms":
+          openAuxPage("terms");
+          break;
+        case "contest":
+          openAuxPage("contest");
+          break;
+        case "privacy":
+          openAuxPage("privacy");
+          break;
+      }
+    });
   });
-});
 
-document.getElementById("dbgHideAll").addEventListener("click", () => {
-  startOverlay.classList.remove("visible");
-  helpOverlay.classList.remove("visible");
-  restartConfirmOverlay.classList.remove("visible");
-  messageOverlay.classList.remove("visible");
-  auxOverlay.classList.remove("visible");
-  leadForm.classList.add("hidden");
-  state.awaitingMessage = false;
-});
+  document.getElementById("dbgHideAll").addEventListener("click", () => {
+    startOverlay.classList.remove("visible");
+    helpOverlay.classList.remove("visible");
+    restartConfirmOverlay.classList.remove("visible");
+    messageOverlay.classList.remove("visible");
+    auxOverlay.classList.remove("visible");
+    leadForm.classList.add("hidden");
+    state.awaitingMessage = false;
+  });
+}
 
 /* ─── Boot ─── */
 setupCanvas();
