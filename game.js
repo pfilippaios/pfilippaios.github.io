@@ -1976,3 +1976,21 @@ if (DEBUG_ENABLED) {
 /* ─── Boot ─── */
 setupCanvas();
 window.addEventListener("resize", setupCanvas);
+
+/* ─── Asset protection ─── */
+document.addEventListener("contextmenu", (event) => event.preventDefault());
+document.addEventListener("dragstart", (event) => event.preventDefault());
+
+window.addEventListener("keydown", (e) => {
+  // Disable F12, Ctrl+Shift+I, Ctrl+Shift+J, Ctrl+U, Ctrl+S, Ctrl+C, Ctrl+V
+  // Also supports Meta (Command) key for Mac
+  const isCmdOrCtrl = e.ctrlKey || e.metaKey;
+  if (
+    e.keyCode === 123 || // F12
+    (isCmdOrCtrl && e.shiftKey && (e.keyCode === 73 || e.keyCode === 74)) || // I, J
+    (isCmdOrCtrl && (e.keyCode === 85 || e.keyCode === 83 || e.keyCode === 67 || e.keyCode === 86)) // U, S, C, V
+  ) {
+    e.preventDefault();
+    return false;
+  }
+});
