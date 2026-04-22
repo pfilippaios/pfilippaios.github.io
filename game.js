@@ -25,6 +25,9 @@ const auxOverlayContent = document.getElementById("auxOverlayContent");
 const auxCloseButton = document.getElementById("auxCloseButton");
 const auxPageButtons = Array.from(document.querySelectorAll("[data-aux-page]"));
 const replayButton = document.getElementById("replayButton");
+const assistToggleButton = document.getElementById("assistToggleButton");
+const assistInfoOverlay = document.getElementById("assistInfoOverlay");
+const assistInfoCloseButton = document.getElementById("assistInfoCloseButton");
 
 /* ─── Image assets ─── */
 let assetsLoaded = 0;
@@ -95,19 +98,27 @@ const DEBUG_ENABLED = false;
 const debugPanel = document.getElementById("debugPanel");
 const debugStateNode = document.getElementById("debugState");
 const debugLogNode = document.getElementById("debugLog");
+const debugFileLogNode = document.getElementById("debugFileLog");
 const debugClearBtn = document.getElementById("debugClear");
+const debugCopyBtn = document.getElementById("debugCopy");
+const debugDownloadBtn = document.getElementById("debugDownload");
 const debugToggleBtn = document.getElementById("debugToggle");
 
 const debug = {
   entries: [],
   fileLog: [],
-  max: 80,
+  markers: [],
+  latestHit: null,
+  max: 120,
+  markerMax: 28,
+  markerTtlMs: 2800,
   log(msg, level = "info") {
     const t = (performance.now() / 1000).toFixed(2);
     this.entries.push({ t, msg, level });
     this.fileLog.push(`[${t}] [${level.toUpperCase()}] ${msg}`);
     if (this.entries.length > this.max) this.entries.shift();
     this.renderLog();
+    this.renderFileLog();
   },
   renderLog() {
     if (!debugLogNode) return;
@@ -119,7 +130,21 @@ const debug = {
   },
   clear() {
     this.entries = [];
+    this.fileLog = [];
+    this.markers = [];
+    this.latestHit = null;
     this.renderLog();
+    this.renderFileLog();
+    this.renderState();
+  },
+  renderFileLog() {
+    const text = this.fileLog.join("\n");
+    if (debugFileLogNode) {
+      debugFileLogNode.value = text;
+      debugFileLogNode.scrollTop = debugFileLogNode.scrollHeight;
+    }
+    window.__hoopRushDebugLog = text;
+    window.__hoopRushDebugEntries = [...this.fileLog];
   },
   download() {
     const blob = new Blob([this.fileLog.join("\n")], { type: "text/plain" });
@@ -129,17 +154,46 @@ const debug = {
     a.click();
     URL.revokeObjectURL(a.href);
   },
+  async copy() {
+    const text = this.fileLog.join("\n");
+    if (!text) return;
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return;
+    }
+    if (debugFileLogNode) {
+      debugFileLogNode.focus();
+      debugFileLogNode.select();
+      document.execCommand("copy");
+    }
+  },
+  recordMarker({ x, y, type, label, color, detail = "" }) {
+    if (!DEBUG_ENABLED) return;
+    const createdAt = performance.now();
+    const marker = { x, y, type, label, color, detail, createdAt };
+    this.markers.push(marker);
+    if (this.markers.length > this.markerMax) this.markers.shift();
+    this.latestHit = marker;
+  },
+  pruneMarkers(now = performance.now()) {
+    const cutoff = now - this.markerTtlMs;
+    this.markers = this.markers.filter((marker) => marker.createdAt >= cutoff);
+  },
   renderState() {
     if (!debugStateNode) return;
     const s = state;
     const b = ball;
+    const lastHit = this.latestHit
+      ? `${this.latestHit.type}@${this.latestHit.x.toFixed(1)},${this.latestHit.y.toFixed(1)}`
+      : "-";
     debugStateNode.textContent =
       `started=${s.started} finished=${s.finished} assist=${s.assistMode}
 attempts=${s.attemptsUsed}/${MAX_ATTEMPTS} made=${s.shotsMade}/${WIN_THRESHOLD} score=${s.score}
 dragging=${s.dragging} awaitMsg=${s.awaitingMessage}
 ball.active=${b.active} scored=${b.scored} hoop=${b.hoopState}
 ball.x=${b.x.toFixed(1)} y=${b.y.toFixed(1)} z=${b.z.toFixed(1)}
-ball.vx=${b.vx.toFixed(2)} vy=${b.vy.toFixed(2)} flight=${b.flightTime || 0}`;
+ball.vx=${b.vx.toFixed(2)} vy=${b.vy.toFixed(2)} flight=${b.flightTime || 0} frontGrace=${b.frontRimGraceUsed}
+logLines=${this.fileLog.length} markers=${this.markers.length} lastHit=${lastHit}`;
   },
 };
 
@@ -151,6 +205,19 @@ if (!DEBUG_ENABLED && debugPanel) {
 if (DEBUG_ENABLED && debugClearBtn) {
   debugClearBtn.addEventListener("click", () => debug.clear());
 }
+if (DEBUG_ENABLED && debugCopyBtn) {
+  debugCopyBtn.addEventListener("click", async () => {
+    try {
+      await debug.copy();
+      debug.log("copied full debug log to clipboard", "evt");
+    } catch (error) {
+      debug.log(`copy-log failed: ${error.message}`, "err");
+    }
+  });
+}
+if (DEBUG_ENABLED && debugDownloadBtn) {
+  debugDownloadBtn.addEventListener("click", () => debug.download());
+}
 if (DEBUG_ENABLED && debugToggleBtn) {
   debugToggleBtn.addEventListener("click", () => {
     debugPanel.classList.toggle("collapsed");
@@ -158,6 +225,7 @@ if (DEBUG_ENABLED && debugToggleBtn) {
   });
 }
 if (DEBUG_ENABLED) {
+  window.__hoopRushDebug = debug;
   window.addEventListener("keydown", (e) => {
     if (e.key === "d" || e.key === "D") {
       debugPanel.classList.toggle("collapsed");
@@ -167,6 +235,8 @@ if (DEBUG_ENABLED) {
       debug.download();
     }
   });
+  debug.renderLog();
+  debug.renderFileLog();
   debug.log("boot", "evt");
 }
 
@@ -251,7 +321,9 @@ const hoop = {
 };
 
 const BALL_DISPLAY_RADIUS = 36;
-const BALL_REST_Y = GAME_HEIGHT - 220; // 540 — raised for mobile viewport
+const BALL_REST_Y = GAME_HEIGHT - 270; // 490 — raised higher for mobile viewport
+const DEPTH_ANCHOR_Y = GAME_HEIGHT - 220; // 540 — original depth reference for z/scale calc
+const BALL_REST_SCALE = 1.25;          // Visual scale boost at rest/drag (pre-launch only)
 const BIRD_ASPECT_RATIO = 258 / 230;
 const BIRD_FRAME_SEQUENCE = [0, 1, 2, 3, 4, 5, 6, 7];
 const BIRD_FLIGHT_BAND = {
@@ -281,8 +353,13 @@ const ball = {
   trail: [],
   scored: false,
   hoopState: "outside",
+  frontRimGraceUsed: false,
   z: 0,
+  opacity: 1.0,
+  settledTime: null,
 };
+
+let particles = [];
 
 const bird = {
   x: GAME_WIDTH + 80,
@@ -406,9 +483,15 @@ function resetBall() {
   ball.scored = false;
   ball.trail = [];
   ball.hoopState = "outside";
+  ball.frontRimGraceUsed = false;
   ball.flightTime = 0;
   ball.z = 0;
   ball.validEntry = false;
+  ball.groundBounced = false;
+  ball.opacity = 1.0;
+  ball.settledTime = null;
+  ball.disappearPoofDone = false;
+  ball.reappearPoofDone = false;
   state.justScored = false;
   state.dragging = false;
   state.pointerStart = null;
@@ -434,6 +517,7 @@ function resetGame() {
   formFeedback.textContent = "";
   resetBall();
   updateHud();
+  updateAssistButton();
 }
 
 function beginGame() {
@@ -448,6 +532,7 @@ function beginGame() {
   state.awaitingMessage = false;
   resetBall();
   updateHud();
+  updateAssistButton();
   debug.log("beginGame", "evt");
 }
 
@@ -470,9 +555,60 @@ function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max);
 }
 
+function hexToRgba(hex, alpha) {
+  const clean = hex.replace("#", "");
+  const size = clean.length === 3 ? 1 : 2;
+  const channels = [];
+  for (let i = 0; i < 3; i++) {
+    const part = clean.slice(i * size, i * size + size);
+    const value = parseInt(size === 1 ? `${part}${part}` : part, 16);
+    channels.push(Number.isNaN(value) ? 255 : value);
+  }
+  return `rgba(${channels[0]}, ${channels[1]}, ${channels[2]}, ${alpha})`;
+}
+
+function getLaunchProfile(assistMode = state.assistMode) {
+  if (assistMode) {
+    return {
+      assistFactor: 1.15,
+      horizontalScale: 0.02,
+      verticalScale: 0.07,
+      verticalBase: 5.5,
+      spinScale: 0.008,
+    };
+  }
+
+  // Manual shots need a slightly flatter release curve. Without the assist
+  // steering, the original launch envelope overpowered straight swipes and
+  // drove them into the front rim too often before they could descend cleanly.
+  return {
+    assistFactor: 1,
+    horizontalScale: 0.02,
+    verticalScale: 0.063,
+    verticalBase: 5.25,
+    spinScale: 0.0075,
+  };
+}
+
+function getLaunchVector(dx, dy, assistMode = state.assistMode) {
+  const upwardPull = clamp(-dy, 20, 260);
+  const profile = getLaunchProfile(assistMode);
+  return {
+    upwardPull,
+    vx: clamp((dx * profile.horizontalScale) * profile.assistFactor, -1.8, 1.8),
+    vy: clamp((-upwardPull * profile.verticalScale) * profile.assistFactor - profile.verticalBase, -18, -12),
+    spin: clamp(dx * profile.spinScale, -1.5, 1.5),
+  };
+}
+
+function getPredictedApexY(y, vy) {
+  if (vy >= 0) return y;
+  return y - (vy * vy) / (2 * GRAVITY);
+}
+
 /* ─── Pointer events ─── */
 function handlePointerDown(event) {
-  if (!state.started || state.finished || ball.active || state.awaitingMessage) return;
+  if (!state.started || state.finished || ball.active || state.awaitingMessage || state.justScored) return;
   const position = getPointerPosition(event);
   if (!isPointerOnBall(position)) return;
   state.dragging = true;
@@ -491,17 +627,16 @@ function launchBall() {
   const dx = state.pointerCurrent.x - state.pointerStart.x;
   const dy = state.pointerCurrent.y - state.pointerStart.y;
   const swipeDistance = Math.hypot(dx, dy);
-  const upwardPull = clamp(-dy, 20, 260);
-  if (swipeDistance < 12 || upwardPull <= 20) {
+  const launch = getLaunchVector(dx, dy);
+  if (swipeDistance < 12 || launch.upwardPull <= 20) {
     state.dragging = false;
     state.pointerStart = null;
     state.pointerCurrent = null;
     return;
   }
-  const assistFactor = state.assistMode ? 1.15 : 1;
-  ball.vx = clamp((dx * 0.02) * assistFactor, -1.8, 1.8);
-  ball.vy = clamp((-upwardPull * 0.07) * assistFactor - 5.5, -18, -12);
-  ball.spin = clamp(dx * 0.008, -1.5, 1.5);
+  ball.vx = launch.vx;
+  ball.vy = launch.vy;
+  ball.spin = launch.spin;
   ball.active = true;
   ball.trail = [];
   state.dragging = false;
@@ -519,9 +654,25 @@ function handlePointerUp() {
 
 /* ─── Game logic ─── */
 function setAssistMode() {
-  // Always on for high mobile conversion
-  state.assistMode = true;
   updateHud();
+  updateAssistButton();
+}
+
+function updateAssistButton() {
+  if (!assistToggleButton) return;
+  assistToggleButton.setAttribute("aria-pressed", state.assistMode ? "true" : "false");
+}
+
+let assistInfoShownThisSession = false;
+
+function toggleAssist() {
+  if (!assistInfoShownThisSession) {
+    assistInfoShownThisSession = true;
+    assistInfoOverlay.classList.add("visible");
+  }
+  state.assistMode = !state.assistMode;
+  updateAssistButton();
+  debug.log(`assist ${state.assistMode ? "on" : "off"}`, "evt");
 }
 
 function showWinOverlay() {
@@ -599,7 +750,57 @@ function registerScore() {
     window.setTimeout(resetBall, 420);
     return;
   }
-  window.setTimeout(() => {
+  /* Transition is driven by ball.settledTime (set in physics when ball
+     stops bouncing). The arcade poof sequence runs from settle, not from
+     score time. A 5s max fallback prevents hanging if settle never fires. */
+  const MAX_TRANSITION_MS = 5000;
+  const scoreTime = performance.now();
+
+  const checkTransition = () => {
+    const now = performance.now();
+
+    if (ball.settledTime) {
+      const sincSettle = now - ball.settledTime;
+
+      /* Phase 1 — disappear poof (once, 500ms after settle) */
+      if (sincSettle >= 500 && !ball.disappearPoofDone) {
+        ball.disappearPoofDone = true;
+        spawnPuff(ball.x, ball.y);
+        ball.opacity = 0;
+      }
+
+      /* Phase 2 — reappear poof + new ball at rest position (once, 900ms after settle) */
+      if (sincSettle >= 900 && !ball.reappearPoofDone) {
+        ball.reappearPoofDone = true;
+        spawnPuff(GAME_WIDTH * 0.5, BALL_REST_Y, 15);
+        spawnStars(GAME_WIDTH * 0.5, BALL_REST_Y, 10);
+        /* Move ball to rest position and make visible immediately with poof */
+        ball.x = GAME_WIDTH * 0.5;
+        ball.y = BALL_REST_Y;
+        ball.opacity = 1.0;
+        ball.hoopState = "outside";
+        ball.scored = false;
+        ball.trail = [];
+        ball.z = 0;
+      }
+
+      /* Phase 3 — finalize and show win/loss (1400ms after settle) */
+      if (sincSettle >= 1400) {
+        finishScoreTransition();
+        return;
+      }
+    }
+
+    /* Fallback cap — force finish if something stalls */
+    if (now - scoreTime >= MAX_TRANSITION_MS) {
+      finishScoreTransition();
+      return;
+    }
+
+    requestAnimationFrame(checkTransition);
+  };
+
+  const finishScoreTransition = () => {
     const remaining = MAX_ATTEMPTS - state.attemptsUsed;
     if (state.shotsMade >= WIN_THRESHOLD) {
       showWinOverlay();
@@ -607,7 +808,9 @@ function registerScore() {
       showLossOverlay();
     }
     resetBall();
-  }, 1200);
+  };
+
+  requestAnimationFrame(checkTransition);
 }
 
 /* ─── Physics ─── */
@@ -679,7 +882,7 @@ function updateBallPhysics() {
   ball.vy += GRAVITY * SLOW_MO;
 
   if (ball.active) {
-    ball.z = clamp((BALL_REST_Y - ball.y) / 3.93, 0, 110);
+    ball.z = clamp((DEPTH_ANCHOR_Y - ball.y) / 3.93, 0, 110);
   }
 
   /* ── Trail recording ── */
@@ -713,7 +916,18 @@ function updateBallPhysics() {
   if (ball.hoopState === "outside" && descendingIntoMouth) {
     ball.hoopState = "entering";
     ball.validEntry = true;
-    debug.log(`entering-mouth x=${ball.x.toFixed(1)} y=${ball.y.toFixed(1)} vy=${ball.vy.toFixed(2)}`, "evt");
+    debug.recordMarker({
+      x: ball.x,
+      y: ball.y,
+      type: "entry",
+      label: "E",
+      color: "#4dd0e1",
+      detail: "entering-mouth",
+    });
+    debug.log(
+      `entering-mouth x=${ball.x.toFixed(1)} y=${ball.y.toFixed(1)} vy=${ball.vy.toFixed(2)} capture=[${captureLeftX.toFixed(1)},${captureRightX.toFixed(1)}]`,
+      "evt"
+    );
   }
 
   /* Committed drop zone — once the ball has validly entered and is falling
@@ -737,12 +951,40 @@ function updateBallPhysics() {
     /* Skip collision for committed drops (Phase 1b) */
     if (committedDrop) return false;
 
+    const nx = dx / dist;
+    const ny = dy / dist;
+    const overlap = effR - dist;
+
+    /* Manual mode rim suppression — two cases:
+       1. Ball center ABOVE rim plane (any direction): prevents stalling
+          on upper rim points after backboard bounce.
+       2. Ball RISING with center within one collision radius BELOW rim:
+          the ball's hitbox extends ~25px above its center, so at y=259
+          it still clips rim points at y=236. Suppress these so the ball
+          arcs cleanly over the front rim.
+       Once the ball is descending AND its center is at/below rimY,
+       normal collisions apply (rim rattles, bouncing, deflects). */
+    if (!state.assistMode && (ball.y < hoop.rimY || (ball.vy < 0 && ball.y < hoop.rimY + effR))) {
+      return false;
+    }
+
     if (state.assistMode) {
       if (ball.vy < 0 && ball.y < hoop.rimY) return false;
       if (ball.vy < 0 && ball.y > hoop.rimY - 15) {
         ball.vy = Math.min(ball.vy, -0.2);
         ball.vx += (hoop.centerX - ball.x) * 0.08;
-        debug.log(`rim.assist-rising-nudge y=${ball.y.toFixed(1)}`, "warn");
+        debug.recordMarker({
+          x: px,
+          y: py,
+          type: "rim",
+          label: "R↑",
+          color: "#ffb74d",
+          detail: "assist-rising-nudge",
+        });
+        debug.log(
+          `rim.assist-rising-nudge point=(${px.toFixed(1)},${py.toFixed(1)}) ball=(${ball.x.toFixed(1)},${ball.y.toFixed(1)}) overlap=${overlap.toFixed(2)}`,
+          "warn"
+        );
         return true;
       }
       if (ball.y <= hoop.rimY + 6) {
@@ -751,26 +993,56 @@ function updateBallPhysics() {
         const prevHoop = ball.hoopState;
         ball.hoopState = "entering";
         ball.validEntry = true;
-        if (prevHoop !== "entering") debug.log(`rim.assist→entering y=${ball.y.toFixed(1)} vx=${ball.vx.toFixed(2)}`, "evt");
+        debug.recordMarker({
+          x: px,
+          y: py,
+          type: "rim",
+          label: "R→E",
+          color: "#ab47bc",
+          detail: "assist-entering",
+        });
+        if (prevHoop !== "entering") {
+          debug.log(
+            `rim.assist→entering point=(${px.toFixed(1)},${py.toFixed(1)}) ball=(${ball.x.toFixed(1)},${ball.y.toFixed(1)}) vx=${ball.vx.toFixed(2)}`,
+            "evt"
+          );
+        }
         return true;
       }
-      const nx = dx / dist;
-      const ny = dy / dist;
-      const overlap = effR - dist;
       ball.x += nx * overlap;
       ball.y += ny * overlap;
       ball.vx *= 0.4;
       ball.vy *= 0.3;
-      debug.log(`rim.under-rim-deflect y=${ball.y.toFixed(1)}`, "warn");
+      debug.recordMarker({
+        x: px,
+        y: py,
+        type: "rim",
+        label: "R↓",
+        color: "#ef5350",
+        detail: "under-rim-deflect",
+      });
+      debug.log(
+        `rim.under-rim-deflect point=(${px.toFixed(1)},${py.toFixed(1)}) ball=(${ball.x.toFixed(1)},${ball.y.toFixed(1)}) normal=(${nx.toFixed(2)},${ny.toFixed(2)}) overlap=${overlap.toFixed(2)}`,
+        "warn"
+      );
       return true;
     }
 
-    const nx = dx / dist;
-    const ny = dy / dist;
-    const overlap = effR - dist;
     ball.x += nx * overlap;
     ball.y += ny * overlap;
     const vDotN = ball.vx * nx + ball.vy * ny;
+    debug.recordMarker({
+      x: px,
+      y: py,
+      type: "rim",
+      label: "R",
+      color: "#ff6b6b",
+      detail: "rim-hit",
+    });
+    debug.log(
+      `rim.hit point=(${px.toFixed(1)},${py.toFixed(1)}) ball=(${ball.x.toFixed(1)},${ball.y.toFixed(1)}) normal=(${nx.toFixed(2)},${ny.toFixed(2)}) dist=${dist.toFixed(2)} overlap=${overlap.toFixed(2)} vDotN=${vDotN.toFixed(2)} hoop=${ball.hoopState}`,
+      "warn"
+    );
     if (vDotN < 0) {
       const restitution = 0.22;
       ball.vx = (ball.vx - 2 * vDotN * nx) * restitution;
@@ -827,10 +1099,24 @@ function updateBallPhysics() {
 
   let backboardHit = false;
   if (hitsBackboardX && hitsBackboardY && ball.vy < 0) {
+    const incomingVy = ball.vy;
+    const backboardHitX = clamp(ball.x, backboardLeft, backboardRight);
+    const backboardHitY = clamp(ball.y - effR, backboardTop, backboardBottom);
     ball.vy = Math.abs(ball.vy) * 0.38;
     ball.vx *= 0.82;
     backboardHit = true;
-    debug.log(`backboard hit x=${ball.x.toFixed(1)} y=${ball.y.toFixed(1)}`, "warn");
+    debug.recordMarker({
+      x: backboardHitX,
+      y: backboardHitY,
+      type: "backboard",
+      label: "B",
+      color: "#ffd166",
+      detail: "backboard-hit",
+    });
+    debug.log(
+      `backboard.hit contact=(${backboardHitX.toFixed(1)},${backboardHitY.toFixed(1)}) box=[${backboardLeft.toFixed(1)},${backboardTop.toFixed(1)}]-[${backboardRight.toFixed(1)},${backboardBottom.toFixed(1)}] ball=(${ball.x.toFixed(1)},${ball.y.toFixed(1)}) vy=${incomingVy.toFixed(2)}→${ball.vy.toFixed(2)}`,
+      "warn"
+    );
   }
 
   /* Post-collision speed cap */
@@ -857,7 +1143,18 @@ function updateBallPhysics() {
   if (ball.hoopState === "outside" && crossedRimFromAbove) {
     ball.hoopState = "entering";
     ball.validEntry = true;
-    debug.log(`top-down crossing y=${ball.y.toFixed(1)}`, "evt");
+    debug.recordMarker({
+      x: ball.x,
+      y: rimY,
+      type: "cross",
+      label: "X",
+      color: "#80cbc4",
+      detail: "top-down-crossing",
+    });
+    debug.log(
+      `top-down crossing x=${ball.x.toFixed(1)} y=${ball.y.toFixed(1)} bottom=${ballBottom.toFixed(1)} prevBottom=${prevBallBottom.toFixed(1)}`,
+      "evt"
+    );
   }
 
   /* ── Phase 1a: Centering BEFORE exit check ──
@@ -894,24 +1191,54 @@ function updateBallPhysics() {
     ball.x > captureLeftX &&
     ball.x < captureRightX
   ) {
-    debug.log(`score-trigger x=${ball.x.toFixed(1)} y=${ball.y.toFixed(1)}`, "evt");
+    debug.recordMarker({
+      x: ball.x,
+      y: ball.y,
+      type: "score",
+      label: "S",
+      color: "#7cff6b",
+      detail: "score-trigger",
+    });
+    debug.log(
+      `score-trigger x=${ball.x.toFixed(1)} y=${ball.y.toFixed(1)} scoreDepth=${(rimY + hoop.netHeight * 0.35).toFixed(1)} capture=[${captureLeftX.toFixed(1)},${captureRightX.toFixed(1)}]`,
+      "evt"
+    );
     registerScore();
   }
 
-  /* ── Scored ball falls behind the hoop with gravity + bounce ── */
+  /* ── Scored ball falls behind the hoop with gravity + bounce + roll ── */
   const HOOP_GROUND_Y = 560;
   if (ball.scored) {
-    ball.x = hoop.centerX;
-    ball.vx = 0;
+    /* Lock to center while falling through the net */
+    if (!ball.groundBounced) {
+      ball.x = hoop.centerX;
+      ball.vx = 0;
+    }
     if (ball.y >= HOOP_GROUND_Y) {
       ball.y = HOOP_GROUND_Y;
-      if (Math.abs(ball.vy) < 0.5) {
-        debug.log(`ball-settled y=${HOOP_GROUND_Y}`, "info");
+      if (Math.abs(ball.vy) < 0.5 && Math.abs(ball.vx) < 0.15) {
+        if (!ball.settledTime) {
+          ball.settledTime = performance.now();
+          ball.angle = 0;
+          ball.spin = 0;
+          debug.log(`ball-settled y=${HOOP_GROUND_Y} x=${ball.x.toFixed(1)} t=${ball.settledTime.toFixed(0)}`, "info");
+        }
         ball.vy = 0;
+        ball.vx = 0;
         ball.active = false;
-      } else {
-        debug.log(`ball-bounce vy=${ball.vy.toFixed(2)}→${(-Math.abs(ball.vy) * 0.45).toFixed(2)}`, "info");
+      } else if (ball.vy > 0) {
+        /* Bounce: kick horizontal velocity on first contact */
+        if (!ball.groundBounced) {
+          ball.vx = (Math.random() - 0.5) * 2.5;
+          ball.groundBounced = true;
+        }
+        debug.log(`ball-bounce vy=${ball.vy.toFixed(2)}→${(-Math.abs(ball.vy) * 0.45).toFixed(2)} vx=${ball.vx.toFixed(2)}`, "info");
         ball.vy = -Math.abs(ball.vy) * 0.45;
+      }
+      /* Rolling friction while on ground */
+      if (ball.groundBounced) {
+        ball.vx *= 0.96;
+        ball.angle += ball.vx * 0.06;
       }
     }
   }
@@ -930,6 +1257,89 @@ function updateBallPhysics() {
     ball.active = false;
     window.setTimeout(concludeMiss, 200);
   }
+}
+
+/* ─── Particles ─── */
+function spawnPuff(x, y, count = 12, color = "rgba(255, 255, 255, 0.7)") {
+  for (let i = 0; i < count; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const speed = 0.5 + Math.random() * 2.5;
+    particles.push({
+      x,
+      y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      life: 1.0,
+      decay: 0.02 + Math.random() * 0.03,
+      size: 4 + Math.random() * 12,
+      color,
+      type: "puff",
+    });
+  }
+}
+
+function spawnStars(x, y, count = 8) {
+  const colors = ["#FFD700", "#FF69B4", "#00FF7F", "#00BFFF", "#FF4500"];
+  for (let i = 0; i < count; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const speed = 1.0 + Math.random() * 3.5;
+    particles.push({
+      x,
+      y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      life: 1.0,
+      decay: 0.015 + Math.random() * 0.02,
+      size: 3 + Math.random() * 5,
+      color: colors[Math.floor(Math.random() * colors.length)],
+      type: "star",
+      angle: Math.random() * Math.PI * 2,
+      spin: (Math.random() - 0.5) * 0.2,
+    });
+  }
+}
+
+function updateParticles() {
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.x += p.vx;
+    p.y += p.vy;
+    p.vy += 0.05; // Light gravity
+    p.life -= p.decay;
+    if (p.type === "star") p.angle += p.spin;
+    if (p.life <= 0) particles.splice(i, 1);
+  }
+}
+
+function drawParticles() {
+  ctx.save();
+  for (const p of particles) {
+    ctx.globalAlpha = p.life;
+    ctx.fillStyle = p.color;
+    if (p.type === "star") {
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.angle);
+      const s = p.size;
+      ctx.beginPath();
+      ctx.moveTo(0, -s);
+      ctx.lineTo(s * 0.3, -s * 0.3);
+      ctx.lineTo(s, 0);
+      ctx.lineTo(s * 0.3, s * 0.3);
+      ctx.lineTo(0, s);
+      ctx.lineTo(-s * 0.3, s * 0.3);
+      ctx.lineTo(-s, 0);
+      ctx.lineTo(-s * 0.3, -s * 0.3);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    } else {
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size * (1 + (1 - p.life)), 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  ctx.restore();
 }
 
 /* ═══════════════════════════════════════════════
@@ -962,11 +1372,16 @@ function depthScale(z) {
 
 /* Once the ball enters/scores through the hoop it is at the hoop's depth —
    it should NOT grow back as it falls.  Lock scale to the rim's depth. */
-const RIM_DEPTH_SCALE = depthScale(clamp((BALL_REST_Y - hoop.rimY) / 3.93, 0, 110));
+const RIM_DEPTH_SCALE = depthScale(clamp((DEPTH_ANCHOR_Y - hoop.rimY) / 3.93, 0, 110));
 
 function getDynamicScale() {
   if (ball.hoopState === "entering" || ball.hoopState === "scored") {
     return RIM_DEPTH_SCALE;
+  }
+  /* Pre-launch: ball appears larger (closer to camera feel).
+     Only when not scored — scored+settled ball stays at rim depth scale. */
+  if (!ball.active && !ball.scored) {
+    return BALL_REST_SCALE;
   }
   return depthScale(ball.z);
 }
@@ -985,7 +1400,7 @@ function getBallRenderImage(angle = ball.angle, useSpinFrames = ball.active) {
 function drawBallGlow() {
   if (!state.dragging || ball.active) return;
   const pulse = (Math.sin(Date.now() / 180) + 1) * 0.5;
-  const baseR = BALL_DISPLAY_RADIUS * depthScale(ball.z);
+  const baseR = BALL_DISPLAY_RADIUS * getDynamicScale();
   const glowR = baseR + 10 + pulse * 8;
   const grad = ctx.createRadialGradient(ball.x, ball.y, baseR * 0.6, ball.x, ball.y, glowR);
   grad.addColorStop(0, `rgba(255, 196, 64, ${0.35 + pulse * 0.25})`);
@@ -997,6 +1412,7 @@ function drawBallGlow() {
 }
 
 function drawBallShadowAndTrail() {
+  if (ball.opacity <= 0) return;
   /* ── Motion trail ── */
   if (ball.trail.length > 1) {
     const len = ball.trail.length;
@@ -1044,9 +1460,11 @@ function drawBallShadowAndTrail() {
 }
 
 function drawBallSprite() {
+  if (ball.opacity <= 0) return;
   const r = BALL_DISPLAY_RADIUS * getDynamicScale();
   const ballSprite = getBallRenderImage(ball.angle, ball.active);
   ctx.save();
+  ctx.globalAlpha = ball.opacity;
   ctx.translate(ball.x, ball.y);
   if (ballSprite === ballImage) {
     ctx.rotate(ball.angle);
@@ -1059,9 +1477,9 @@ function drawAimGuide() {
   if (!state.dragging || !state.pointerStart || !state.pointerCurrent) return;
   const dx = state.pointerCurrent.x - state.pointerStart.x;
   const dy = state.pointerCurrent.y - state.pointerStart.y;
-  const assistFactor = state.assistMode ? 1.15 : 1;
-  const previewVx = clamp((dx * 0.02) * assistFactor, -1.8, 1.8);
-  const previewVy = clamp((-clamp(-dy, 20, 260) * 0.07) * assistFactor - 5.5, -18, -12);
+  const previewLaunch = getLaunchVector(dx, dy);
+  const previewVx = previewLaunch.vx;
+  const previewVy = previewLaunch.vy;
 
   ctx.setLineDash([8, 6]);
   ctx.strokeStyle = "rgba(255, 255, 255, 0.6)";
@@ -1069,7 +1487,7 @@ function drawAimGuide() {
   ctx.beginPath();
 
   let px = ball.x, py = ball.y, vx = previewVx, vy = previewVy;
-  let sp = clamp(dx * 0.008, -1.5, 1.5); // preview spin
+  let sp = previewLaunch.spin; // preview spin
   ctx.moveTo(px, py);
   for (let i = 0; i < 30; i++) {
     // Match actual physics: spin, drag, Verlet
@@ -1186,34 +1604,129 @@ function drawFrontHoop() {
 
 let debugApex = Infinity;
 function drawDebugRim() {
-  if (!TEST_MODE) return;
-  ctx.strokeStyle = "red";
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.arc(hoop.centerX, hoop.rimY, hoop.rimRadius, 0, Math.PI * 2);
-  ctx.stroke();
-  // horizontal rim plane line across canvas
-  ctx.strokeStyle = "rgba(255,0,0,0.5)";
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(0, hoop.rimY);
-  ctx.lineTo(GAME_WIDTH, hoop.rimY);
-  ctx.stroke();
-  // persistent apex line (lowest y reached)
+  if (!DEBUG_ENABLED) return;
+
+  const effR = BALL_COLLISION_RADIUS;
+  const rimY = hoop.rimY;
+  const leftRimX = hoop.centerX - hoop.rimRadius;
+  const rightRimX = hoop.centerX + hoop.rimRadius;
+  const innerLeftRimX = leftRimX + 4;
+  const innerRightRimX = rightRimX - 4;
+  const capturePadding = BALL_DISPLAY_RADIUS * 0.28;
+  const captureLeftX = innerLeftRimX - capturePadding;
+  const captureRightX = innerRightRimX + capturePadding;
+  const captureTop = rimY - effR * 0.55;
+  const scoreDepthY = rimY + hoop.netHeight * 0.35;
+  const committedBottomY = rimY + hoop.netHeight * 0.65;
+  const backboardLeft = hoop.centerX - hoop.backboardWidth * 0.5;
+  const backboardTop = rimY - 110;
+  const backboardWidth = hoop.backboardWidth;
+  const backboardHeight = 18;
+
   if (ball.active && ball.y < debugApex) debugApex = ball.y;
   if (!ball.active) debugApex = Infinity;
+  debug.pruneMarkers();
+
+  ctx.save();
+
+  ctx.lineWidth = 1.25;
+  ctx.setLineDash([6, 4]);
+  ctx.strokeStyle = "rgba(77, 208, 225, 0.95)";
+  ctx.strokeRect(captureLeftX, captureTop, captureRightX - captureLeftX, scoreDepthY - captureTop);
+  ctx.fillStyle = "rgba(77, 208, 225, 0.9)";
+  ctx.font = "10px monospace";
+  ctx.fillText("capture", captureLeftX + 3, captureTop - 4);
+
+  ctx.strokeStyle = "rgba(171, 71, 188, 0.95)";
+  ctx.strokeRect(captureLeftX, rimY - 2, captureRightX - captureLeftX, committedBottomY - (rimY - 2));
+  ctx.fillStyle = "rgba(171, 71, 188, 0.9)";
+  ctx.fillText("committed", captureLeftX + 3, committedBottomY + 12);
+
+  ctx.setLineDash([]);
+  ctx.strokeStyle = "rgba(255, 209, 102, 0.95)";
+  ctx.strokeRect(backboardLeft, backboardTop, backboardWidth, backboardHeight);
+  ctx.fillStyle = "rgba(255, 209, 102, 0.95)";
+  ctx.fillText("backboard", backboardLeft + 2, backboardTop - 4);
+
+  ctx.strokeStyle = "rgba(255, 99, 99, 0.9)";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.ellipse(hoop.centerX, rimY, hoop.rimRadius, hoop.rimRadius * 0.3, 0, 0, Math.PI * 2);
+  ctx.stroke();
+
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = "rgba(255, 0, 0, 0.5)";
+  ctx.beginPath();
+  ctx.moveTo(0, rimY);
+  ctx.lineTo(GAME_WIDTH, rimY);
+  ctx.stroke();
+
+  ctx.fillStyle = "rgba(255, 107, 107, 0.8)";
+  const rimPointPerspective = 0.3;
+  const rimPointCount = 24;
+  for (let i = 0; i < rimPointCount; i++) {
+    const angle = (i / rimPointCount) * Math.PI * 2;
+    const py = rimY + Math.sin(angle) * hoop.rimRadius * rimPointPerspective;
+    if (py > rimY + 2) continue;
+    const px = hoop.centerX + Math.cos(angle) * hoop.rimRadius;
+    ctx.beginPath();
+    ctx.arc(px, py, 2, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  if (ball.active || state.dragging) {
+    ctx.strokeStyle = ball.hoopState === "entering" ? "rgba(124, 255, 107, 0.95)" : "rgba(255, 255, 255, 0.8)";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(ball.x, ball.y, effR, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
+  ctx.setLineDash([3, 3]);
+  ctx.strokeStyle = "rgba(124, 255, 107, 0.9)";
+  ctx.beginPath();
+  ctx.moveTo(captureLeftX, scoreDepthY);
+  ctx.lineTo(captureRightX, scoreDepthY);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = "rgba(124, 255, 107, 0.9)";
+  ctx.fillText("score depth", captureRightX - 56, scoreDepthY - 5);
+
   if (debugApex < GAME_HEIGHT) {
-    ctx.strokeStyle = "lime";
+    ctx.strokeStyle = "rgba(124, 255, 107, 0.65)";
     ctx.beginPath();
     ctx.moveTo(0, debugApex);
     ctx.lineTo(GAME_WIDTH, debugApex);
     ctx.stroke();
   }
-  // text HUD
+
+  const now = performance.now();
+  ctx.textAlign = "center";
+  ctx.textBaseline = "bottom";
+  ctx.font = "10px monospace";
+  for (const marker of debug.markers) {
+    const age = now - marker.createdAt;
+    const alpha = Math.max(0.18, 1 - age / debug.markerTtlMs);
+    ctx.fillStyle = hexToRgba(marker.color || "#ffffff", alpha);
+    ctx.strokeStyle = `rgba(0, 0, 0, ${Math.min(0.9, alpha + 0.2)})`;
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.arc(marker.x, marker.y, 5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+    ctx.fillText(marker.label || marker.type || "hit", marker.x, marker.y - 8);
+  }
+
+  ctx.textAlign = "left";
+  ctx.textBaseline = "alphabetic";
   ctx.fillStyle = "yellow";
   ctx.font = "12px monospace";
-  ctx.fillText(`ball.y=${ball.y.toFixed(0)} vy=${ball.vy.toFixed(2)}`, 8, GAME_HEIGHT - 20);
-  ctx.fillText(`rimY=${hoop.rimY} apex=${isFinite(debugApex) ? debugApex.toFixed(0) : "-"}`, 8, GAME_HEIGHT - 6);
+  ctx.fillText(`ball.y=${ball.y.toFixed(0)} vy=${ball.vy.toFixed(2)} hoop=${ball.hoopState}`, 8, GAME_HEIGHT - 34);
+  ctx.fillText(`rimY=${rimY} apex=${isFinite(debugApex) ? debugApex.toFixed(0) : "-"} scoreY=${scoreDepthY.toFixed(1)}`, 8, GAME_HEIGHT - 20);
+  ctx.fillText(`capture=[${captureLeftX.toFixed(1)}, ${captureRightX.toFixed(1)}] ballR=${effR.toFixed(1)}`, 8, GAME_HEIGHT - 6);
+
+  ctx.restore();
 }
 
 /* ─── Main draw ─── */
@@ -1250,7 +1763,9 @@ function render() {
   ctx.clearRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
   updateBird();
   updateBallPhysics();
+  updateParticles();
   drawScene();
+  drawParticles();
   if (DEBUG_ENABLED) {
     debug.renderState();
   }
@@ -1281,6 +1796,14 @@ helpButton.addEventListener("click", () => {
 helpCloseButton.addEventListener("click", () => {
   helpOverlay.classList.remove("visible");
 });
+if (assistToggleButton) {
+  assistToggleButton.addEventListener("click", toggleAssist);
+}
+if (assistInfoCloseButton) {
+  assistInfoCloseButton.addEventListener("click", () => {
+    assistInfoOverlay.classList.remove("visible");
+  });
+}
 auxCloseButton.addEventListener("click", () => {
   auxOverlay.classList.remove("visible");
 });

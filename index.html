@@ -36,6 +36,14 @@
                 <circle cx="12" cy="17.5" r="1.2" fill="currentColor" stroke="none" />
               </svg>
             </button>
+            <button class="assist-fab" type="button" id="assistToggleButton" aria-label="Βοήθεια στόχευσης" aria-pressed="true">
+              <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+                <circle cx="12" cy="12" r="7.5" fill="none" stroke="currentColor" stroke-width="2.2" />
+                <circle cx="12" cy="12" r="2.2" fill="currentColor" />
+                <path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"
+                  d="M12 2.5 V5 M12 19 V21.5 M2.5 12 H5 M19 12 H21.5" />
+              </svg>
+            </button>
             <div class="score-strip" aria-label="κατάσταση παιχνιδιού">
               <article>
                 <span class="label">Καλάθια</span>
@@ -111,6 +119,23 @@
                     Ισχύουν όροι και προϋποθέσεις.
                   </p>
                 </div>
+              </div>
+            </div>
+
+            <div class="overlay" id="assistInfoOverlay" aria-live="polite">
+              <div class="overlay-card compact">
+                <p class="eyebrow">Βοήθεια στόχευσης</p>
+                <h2>Τι κάνει;</h2>
+                <p>
+                  Όταν είναι <strong class="copy-accent">ενεργή</strong>,<br />
+                  η μπάλα κατευθύνεται ελαφρώς προς το καλάθι<br />
+                  για πιο ομαλά σουτ.
+                </p>
+                <p>
+                  Πάτα ξανά το κουμπί<br />
+                  για να την <strong>ενεργοποιήσεις ή να την απενεργοποιήσεις</strong>.
+                </p>
+                <button class="primary-button" type="button" id="assistInfoCloseButton">Εντάξει</button>
               </div>
             </div>
 
@@ -221,8 +246,12 @@
     <div id="debugPanel">
       <div class="debug-head">
         <strong>Debug</strong>
-        <button type="button" id="debugClear">Clear</button>
-        <button type="button" id="debugToggle">Hide</button>
+        <div class="debug-actions">
+          <button type="button" id="debugClear">Clear</button>
+          <button type="button" id="debugCopy">Copy Log</button>
+          <button type="button" id="debugDownload">Download</button>
+          <button type="button" id="debugToggle">Hide</button>
+        </div>
       </div>
       <div class="debug-modals">
         <button type="button" data-dbg-modal="start">Start</button>
@@ -238,6 +267,8 @@
       </div>
       <pre id="debugState"></pre>
       <div id="debugLog"></div>
+      <label class="debug-label" for="debugFileLog">Session log</label>
+      <textarea id="debugFileLog" readonly spellcheck="false"></textarea>
     </div>
     <script src="./game.js"></script>
   </body>
