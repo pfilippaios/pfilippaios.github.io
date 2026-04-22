@@ -31,7 +31,19 @@ const assistInfoCloseButton = document.getElementById("assistInfoCloseButton");
 
 /* ─── Image assets ─── */
 let assetsLoaded = 0;
-const TOTAL_ASSETS = 21;
+const BALL_SPIN_FRAME_COUNT = 8;
+const BIRD_FRAME_COUNT = 8;
+const NET_FRAME_ASSETS = [
+  { key: "idle", src: "./assets/net-state-01-idle.png" },
+  { key: "preopen", src: "./assets/net-state-02-preopen.png" },
+  { key: "catch", src: "./assets/net-state-03-catch.png" },
+  { key: "drop", src: "./assets/net-state-04-drop.png" },
+  { key: "stretch", src: "./assets/net-state-05-stretch.png" },
+  { key: "swayLeft", src: "./assets/net-state-06-sway-left.png" },
+  { key: "swayRight", src: "./assets/net-state-07-sway-right.png" },
+  { key: "recoil", src: "./assets/net-state-08-recoil.png" },
+];
+const TOTAL_ASSETS = 1 + 1 + BALL_SPIN_FRAME_COUNT + NET_FRAME_ASSETS.length + 1 + BIRD_FRAME_COUNT;
 
 function onAssetLoad() {
   assetsLoaded++;
@@ -52,28 +64,19 @@ const ballImage = new Image();
 ballImage.onload = onAssetLoad;
 ballImage.src = "./assets/ball.png";
 
-const ballSpinFrames = Array.from({ length: 8 }, (_, index) => {
+const ballSpinFrames = Array.from({ length: BALL_SPIN_FRAME_COUNT }, (_, index) => {
   const image = new Image();
   image.onload = onAssetLoad;
   image.src = `./assets/ball-spin-${index + 1}.png`;
   return image;
 });
 
-const netDefaultImage = new Image();
-let netDefaultReady = false;
-netDefaultImage.onload = () => {
-  netDefaultReady = true;
-  onAssetLoad();
-};
-netDefaultImage.src = "./assets/net_default.png";
-
-const netExpandedImage = new Image();
-let netExpandedReady = false;
-netExpandedImage.onload = () => {
-  netExpandedReady = true;
-  onAssetLoad();
-};
-netExpandedImage.src = "./assets/net_expanded.png";
+const netFrames = NET_FRAME_ASSETS.map(({ src }) => {
+  const image = new Image();
+  image.onload = onAssetLoad;
+  image.src = src;
+  return image;
+});
 
 const frontHoopImage = new Image();
 let frontHoopReady = false;
@@ -83,7 +86,7 @@ frontHoopImage.onload = () => {
 };
 frontHoopImage.src = "./assets/front-hoop.png";
 
-const birdFrames = Array.from({ length: 8 }, (_, index) => {
+const birdFrames = Array.from({ length: BIRD_FRAME_COUNT }, (_, index) => {
   const image = new Image();
   image.onload = onAssetLoad;
   image.src = `./assets/bird-smooth-${index + 1}.png`;
@@ -359,6 +362,23 @@ const ball = {
   settledTime: null,
 };
 
+const NET_FRAME_INDEX = {
+  idle: 0,
+  preopen: 1,
+  catch: 2,
+  drop: 3,
+  stretch: 4,
+  swayLeft: 5,
+  swayRight: 6,
+  recoil: 7,
+};
+
+const netAnimation = {
+  energy: 0,
+  frameIndex: NET_FRAME_INDEX.idle,
+  lastDirection: 1,
+};
+
 let particles = [];
 
 const bird = {
@@ -496,6 +516,7 @@ function resetBall() {
   state.dragging = false;
   state.pointerStart = null;
   state.pointerCurrent = null;
+  resetNetAnimation();
 }
 
 function resetGame() {
@@ -1543,19 +1564,76 @@ function drawAssistGlow() {
   ctx.fill();
 }
 
-function isBallInNet() {
-  const deepInsideHoop = ball.y >= hoop.rimY + hoop.netHeight * 0.2;
+function resetNetAnimation() {
+  netAnimation.energy = 0;
+  netAnimation.frameIndex = NET_FRAME_INDEX.idle;
+  netAnimation.lastDirection = 1;
+}
+
+function isBallDrivingNet() {
   return (
     ball.active &&
-    ((ball.hoopState === "entering" && deepInsideHoop) || ball.hoopState === "scored")
+    (ball.hoopState === "entering" || ball.hoopState === "scored") &&
+    ball.y >= hoop.rimY - 10 &&
+    ball.y <= hoop.rimY + hoop.netHeight + 42
   );
 }
 
+function updateNetAnimation() {
+  const directionThreshold = 0.18;
+  if (ball.vx <= -directionThreshold) {
+    netAnimation.lastDirection = -1;
+  } else if (ball.vx >= directionThreshold) {
+    netAnimation.lastDirection = 1;
+  }
+
+  if (isBallDrivingNet()) {
+    const depthProgress = clamp((ball.y - (hoop.rimY - 4)) / (hoop.netHeight + 14), 0, 1);
+    const verticalStretch = clamp(ball.vy / 8, 0, 1);
+    const horizontalSpeed = Math.abs(ball.vx);
+
+    netAnimation.energy = Math.max(
+      netAnimation.energy,
+      clamp(0.28 + depthProgress * 0.5 + verticalStretch * 0.22 + horizontalSpeed * 0.18, 0, 1),
+    );
+
+    if (ball.y < hoop.rimY + hoop.netHeight * 0.06 || ball.vy <= 0.45) {
+      netAnimation.frameIndex = NET_FRAME_INDEX.preopen;
+    } else if (depthProgress < 0.24) {
+      netAnimation.frameIndex = NET_FRAME_INDEX.catch;
+    } else if (depthProgress < 0.58) {
+      netAnimation.frameIndex = NET_FRAME_INDEX.drop;
+    } else if (horizontalSpeed > 0.55) {
+      netAnimation.frameIndex =
+        netAnimation.lastDirection < 0 ? NET_FRAME_INDEX.swayLeft : NET_FRAME_INDEX.swayRight;
+    } else {
+      netAnimation.frameIndex = NET_FRAME_INDEX.stretch;
+    }
+    return;
+  }
+
+  if (netAnimation.energy > 0.01) {
+    netAnimation.energy = Math.max(0, netAnimation.energy - 0.06);
+
+    if (netAnimation.energy > 0.56) {
+      netAnimation.frameIndex =
+        netAnimation.lastDirection < 0 ? NET_FRAME_INDEX.swayRight : NET_FRAME_INDEX.swayLeft;
+    } else if (netAnimation.energy > 0.22) {
+      netAnimation.frameIndex = NET_FRAME_INDEX.recoil;
+    } else if (netAnimation.energy > 0.08) {
+      netAnimation.frameIndex = NET_FRAME_INDEX.preopen;
+    } else {
+      netAnimation.frameIndex = NET_FRAME_INDEX.idle;
+    }
+    return;
+  }
+
+  netAnimation.frameIndex = NET_FRAME_INDEX.idle;
+}
+
 function drawNet() {
-  const expanded = isBallInNet();
-  const img = expanded ? netExpandedImage : netDefaultImage;
-  const ready = expanded ? netExpandedReady : netDefaultReady;
-  if (!ready) return;
+  const img = netFrames[netAnimation.frameIndex] || netFrames[NET_FRAME_INDEX.idle];
+  if (!img || !img.complete || !img.naturalWidth) return;
 
   const NET_WIDTH_MULT = 2.1;
   const NET_Y_OFFSET = -6;
@@ -1567,22 +1645,25 @@ function drawNet() {
   let height = baseHeight;
   let xOffset = 0;
 
-  // Add dynamic stretch and wobble if the ball is in the net
-  if (expanded && ball.active) {
-    // Stretch based on vertical velocity
-    const stretchFactor = clamp(ball.vy * 0.008, 0, 0.25);
-    height *= (1 + stretchFactor);
+  // The sprite sequence carries most of the deformation. Keep a small live
+  // response so the net does not feel locked to discrete frames.
+  if (netAnimation.frameIndex !== NET_FRAME_INDEX.idle) {
+    const liveStretch = ball.active ? clamp(ball.vy * 0.0045, 0, 0.08) : netAnimation.energy * 0.025;
+    height *= 1 + liveStretch;
 
-    // Wobble based on horizontal entry velocity and time
-    const horizontalPull = clamp(ball.vx * 0.8, -12, 12);
-    const wobbleFreq = 0.015;
-    const wobbleAmp = clamp(Math.abs(ball.vx) * 1.5, 2, 8);
-    xOffset = horizontalPull + Math.sin(Date.now() * wobbleFreq) * wobbleAmp;
+    if (ball.active) {
+      xOffset += clamp(ball.vx * 0.45, -5, 5);
+    }
 
-    // Fade out wobble as the ball falls below the net
-    const netBottom = hoop.rimY + baseHeight;
-    const exitFactor = clamp((ball.y - netBottom) / 40, 0, 1);
-    xOffset *= (1 - exitFactor);
+    if (netAnimation.frameIndex === NET_FRAME_INDEX.swayLeft) {
+      xOffset -= 2 + netAnimation.energy * 4;
+    } else if (netAnimation.frameIndex === NET_FRAME_INDEX.swayRight) {
+      xOffset += 2 + netAnimation.energy * 4;
+    } else if (netAnimation.frameIndex === NET_FRAME_INDEX.recoil) {
+      xOffset += -netAnimation.lastDirection * (1.5 + netAnimation.energy * 4.5);
+    } else if (!ball.active && netAnimation.energy > 0.08) {
+      xOffset += -netAnimation.lastDirection * netAnimation.energy * 2;
+    }
   }
 
   const x = hoop.centerX - width / 2 + xOffset;
@@ -1763,6 +1844,7 @@ function render() {
   ctx.clearRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
   updateBird();
   updateBallPhysics();
+  updateNetAnimation();
   updateParticles();
   drawScene();
   drawParticles();

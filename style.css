@@ -89,6 +89,19 @@ body {
   overflow: hidden;
 }
 
+@media (max-width: 480px) {
+  .phone-stage {
+    width: 100%;
+    max-height: 100dvh;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+  }
+  .game-layout {
+    padding: 0;
+  }
+}
+
 /* Header — dark bar like screenshot */
 .topbar {
   background: linear-gradient(180deg, #2a2040, #1a1030);
