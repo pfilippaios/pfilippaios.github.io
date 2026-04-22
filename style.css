@@ -262,6 +262,53 @@ body {
   text-shadow: 2px 2px 0 #000;
 }
 
+/* Tooltip — below assist-fab */
+.assist-tooltip {
+  position: absolute;
+  top: 60px;
+  left: 114px;
+  transform: translateX(-40%);
+  z-index: 4;
+  background: rgba(13, 8, 21, 0.95);
+  border: 1px solid #4a3a55;
+  color: #fff;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 11px;
+  line-height: 1.4;
+  width: 160px;
+  text-align: center;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+  pointer-events: none;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.assist-tooltip.hidden {
+  opacity: 0;
+  transform: translateX(-40%) translateY(-5px);
+}
+
+.tooltip-arrow {
+  position: absolute;
+  top: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-bottom: 6px solid #4a3a55;
+}
+
+@media (max-width: 420px) {
+  .assist-tooltip {
+    left: 100px;
+    top: 54px;
+    width: 140px;
+    font-size: 10px;
+  }
+}
+
 .assist-banner,
 .status-toast {
   position: absolute;

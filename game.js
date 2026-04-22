@@ -305,9 +305,12 @@ let state = {
   scoreMessage: null,
   animationFrame: null,
   justScored: false,
-  assistMode: true,
+  assistMode: false,
   awaitingMessage: false,
 };
+
+/* ─── UI References ─── */
+const assistTooltip = document.getElementById("assistTooltip");
 
 /*
  * Hoop collision coordinates — aligned to where the rim sits in bg.png.
@@ -460,6 +463,14 @@ function setupCanvas() {
 function updateHud() {
   triesLeftNode.textContent = `${Math.max(MAX_ATTEMPTS - state.attemptsUsed, 0)}/${MAX_ATTEMPTS}`;
   madeValueNode.textContent = `${state.shotsMade}/${WIN_THRESHOLD}`;
+
+  // If assist is off and user is struggling (missed > 2 shots), show tooltip
+  const missedCount = state.attemptsUsed - state.shotsMade;
+  if (!state.assistMode && missedCount >= 3) {
+    if (assistTooltip) assistTooltip.classList.remove("hidden");
+  } else {
+    if (assistTooltip) assistTooltip.classList.add("hidden");
+  }
 }
 
 /* ─── Overlays ─── */
@@ -529,7 +540,7 @@ function resetGame() {
   state.pointerStart = null;
   state.pointerCurrent = null;
   state.justScored = false;
-  state.assistMode = true; // High conversion: Always on for mobile
+  state.assistMode = false; 
   state.awaitingMessage = false;
   hideOverlay(messageOverlay);
   startOverlay.classList.add("visible");
@@ -539,6 +550,7 @@ function resetGame() {
   resetBall();
   updateHud();
   updateAssistButton();
+  if (assistTooltip) assistTooltip.classList.add("hidden");
 }
 
 function beginGame() {
@@ -547,6 +559,7 @@ function beginGame() {
   state.attemptsUsed = 0;
   state.score = 0;
   state.shotsMade = 0;
+  state.assistMode = false;
   startOverlay.classList.remove("visible");
   hideOverlay(messageOverlay);
   leadForm.classList.add("hidden");
@@ -554,6 +567,7 @@ function beginGame() {
   resetBall();
   updateHud();
   updateAssistButton();
+  if (assistTooltip) assistTooltip.classList.add("hidden");
   debug.log("beginGame", "evt");
 }
 
@@ -687,6 +701,7 @@ function updateAssistButton() {
 let assistInfoShownThisSession = false;
 
 function toggleAssist() {
+  if (assistTooltip) assistTooltip.classList.add("hidden");
   if (!assistInfoShownThisSession) {
     assistInfoShownThisSession = true;
     assistInfoOverlay.classList.add("visible");
