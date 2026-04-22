@@ -464,9 +464,9 @@ function updateHud() {
   triesLeftNode.textContent = `${Math.max(MAX_ATTEMPTS - state.attemptsUsed, 0)}/${MAX_ATTEMPTS}`;
   madeValueNode.textContent = `${state.shotsMade}/${WIN_THRESHOLD}`;
 
-  // If assist is off and user is struggling (missed > 2 shots), show tooltip
+  // If assist is off and user is struggling (missed > 1 shots), show tooltip
   const missedCount = state.attemptsUsed - state.shotsMade;
-  if (!state.assistMode && missedCount >= 3) {
+  if (!state.assistMode && missedCount >= 2) {
     if (assistTooltip) assistTooltip.classList.remove("hidden");
   } else {
     if (assistTooltip) assistTooltip.classList.add("hidden");
@@ -742,12 +742,7 @@ function concludeMiss() {
   }
   const remaining = MAX_ATTEMPTS - state.attemptsUsed;
   const needed = WIN_THRESHOLD - state.shotsMade;
-  // Early exit: impossible to still reach WIN_THRESHOLD.
-  if (needed > remaining) {
-    showLossOverlay();
-    resetBall();
-    return;
-  }
+
   if (remaining <= 0) {
     if (state.shotsMade >= WIN_THRESHOLD) {
       showWinOverlay();
@@ -761,7 +756,9 @@ function concludeMiss() {
   showOverlay({
     eyebrow: "Αστοχία",
     title: "Εκτός στόχου",
-    body: `Έμειναν ${remaining} προσπάθειες. Χρειάζονται ${needed} καλάθια ακόμα.`,
+    body: needed > 0 
+      ? `Έμειναν ${remaining} προσπάθειες. Χρειάζονται ${needed} καλάθια ακόμα.`
+      : `Έμειναν ${remaining} προσπάθειες. Συνέχισε την προσπάθεια!`,
     buttonLabel: "Πάμε για την επόμενη",
   });
   resetBall();
