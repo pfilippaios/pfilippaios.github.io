@@ -822,13 +822,10 @@ canvas {
     height: 100dvh;
     max-height: 100dvh;
     border: none;
-    border-radius: 0;
+    border-radius: 12px;
   }
   .app-shell {
     background: var(--bg-deep);
-  }
-  .topbar {
-    display: none;
   }
   canvas {
     width: max(100vw, calc(100dvh * 420 / 760));
