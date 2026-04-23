@@ -14,6 +14,7 @@
     const {
       assistToggleButton,
       assistTooltip,
+      assistTooltipDismissButton,
       assistInfoOverlay,
     } = nodes;
 
@@ -126,6 +127,12 @@
       assistToggleButton.setAttribute("aria-pressed", state.assistMode ? "true" : "false");
     }
 
+    function dismissAssistTooltip() {
+      state.assistTooltipDismissed = true;
+      if (assistTooltip) assistTooltip.classList.add("hidden");
+      if (assistTooltipDismissButton) assistTooltipDismissButton.blur();
+    }
+
     function toggleAssist() {
       if (assistTooltip) assistTooltip.classList.add("hidden");
       if (!assistInfoShownThisSession) {
@@ -148,6 +155,7 @@
       handlePointerUp,
       launchBall,
       updateAssistButton,
+      dismissAssistTooltip,
       toggleAssist,
     };
   }

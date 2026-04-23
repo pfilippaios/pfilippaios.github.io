@@ -56,6 +56,7 @@
       ball.groundBounced = false;
       ball.opacity = 1.0;
       ball.settledTime = null;
+      ball.backboardHitSoundArmed = true;
       ball.disappearPoofDone = false;
       ball.reappearPoofDone = false;
       state.justScored = false;
@@ -83,6 +84,7 @@
       state.pointerCurrent = null;
       state.justScored = false;
       state.assistMode = false;
+      state.assistTooltipDismissed = false;
       state.awaitingMessage = false;
       ui.hideOverlay(messageOverlay);
       startOverlay.classList.add("visible");
@@ -104,6 +106,7 @@
       state.timeRemainingMs = constants.ROUND_DURATION_MS;
       state.timerLastTickAt = null;
       state.assistMode = false;
+      state.assistTooltipDismissed = false;
       incrementPlayCount();
       startOverlay.classList.remove("visible");
       ui.hideOverlay(messageOverlay);

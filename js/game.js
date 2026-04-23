@@ -33,12 +33,15 @@ const auxCloseButton = document.getElementById("auxCloseButton");
 const auxPageButtons = Array.from(document.querySelectorAll("[data-aux-page]"));
 const replayButton = document.getElementById("replayButton");
 const assistToggleButton = document.getElementById("assistToggleButton");
+const muteButton = document.getElementById("muteButton");
 const assistInfoOverlay = document.getElementById("assistInfoOverlay");
 const assistInfoCloseButton = document.getElementById("assistInfoCloseButton");
+const assistTooltipCloseButton = document.getElementById("assistTooltipCloseButton");
 
 const HoopRushModules = window.HoopRushModules || {};
 const { clamp, hashString01, hexToRgba } = HoopRushModules.utils || {};
 const { createAssetSystem } = HoopRushModules.assets || {};
+const { createAudioSystem } = HoopRushModules.audio || {};
 const { createParticlesSystem } = HoopRushModules.particles || {};
 const { createBirdSystem } = HoopRushModules.bird || {};
 const { createCrowdSystem } = HoopRushModules.crowd || {};
@@ -57,6 +60,7 @@ if (
   !hashString01 ||
   !hexToRgba ||
   !createAssetSystem ||
+  !createAudioSystem ||
   !createParticlesSystem ||
   !createBirdSystem ||
   !createCrowdSystem ||
@@ -77,6 +81,7 @@ if (
 let particlesSystem = null;
 let birdSystem = null;
 let crowdSystem = null;
+let audioSystem = null;
 let uiSystem = null;
 let sessionSystem = null;
 let roundFlowSystem = null;
@@ -195,6 +200,7 @@ let state = {
   animationFrame: null,
   justScored: false,
   assistMode: false,
+  assistTooltipDismissed: false,
   awaitingMessage: false,
   timeRemainingMs: ROUND_DURATION_MS,
   timerLastTickAt: null,
@@ -277,6 +283,7 @@ const ball = {
   z: 0,
   opacity: 1.0,
   settledTime: null,
+  backboardHitSoundArmed: true,
 };
 
 debug = createDebugSystem({
@@ -298,6 +305,61 @@ debug = createDebugSystem({
     WIN_THRESHOLD,
   },
 });
+
+audioSystem = createAudioSystem({
+  bgMusicSrc: "./assets/sounds/bg_music.mp3",
+  crowdSrc: "./assets/sounds/crowd.mp3",
+  netSrc: "./assets/sounds/net.mp3",
+  dropSrc: "./assets/sounds/drop.mp3",
+  hitSources: [
+    "./assets/sounds/hit_1.mp3",
+    "./assets/sounds/hit_2.mp3",
+    "./assets/sounds/hit_3.mp3",
+    "./assets/sounds/hit_4.mp3",
+    "./assets/sounds/hit_5.mp3",
+  ],
+  bgMusicVolume: 0.16,
+  crowdVolume: 0.08,
+  debug,
+});
+updateMuteButton();
+audioSystem.startMusic({ silentFailure: true });
+
+function updateMuteButtonLayer() {
+  if (!muteButton || !leadForm) return;
+  const leadFormVisible = !leadForm.classList.contains("hidden");
+  muteButton.classList.toggle("overlay-floating", !leadFormVisible);
+}
+
+function removeIntroMusicUnlockListeners() {
+  document.removeEventListener("pointerdown", unlockIntroMusicOnInteraction, true);
+  document.removeEventListener("keydown", handleIntroMusicUnlockKeydown, true);
+}
+
+function unlockIntroMusicOnInteraction() {
+  if (!audioSystem) return;
+  audioSystem.startMusic({ silentFailure: true });
+  removeIntroMusicUnlockListeners();
+}
+
+function handleIntroMusicUnlockKeydown(event) {
+  if (event.key !== "Enter" && event.key !== " ") return;
+  unlockIntroMusicOnInteraction();
+}
+
+document.addEventListener("pointerdown", unlockIntroMusicOnInteraction, true);
+document.addEventListener("keydown", handleIntroMusicUnlockKeydown, true);
+updateMuteButtonLayer();
+
+if (muteButton && leadForm) {
+  const muteButtonLeadFormObserver = new MutationObserver(() => {
+    updateMuteButtonLayer();
+  });
+  muteButtonLeadFormObserver.observe(leadForm, {
+    attributes: true,
+    attributeFilter: ["class"],
+  });
+}
 
 particlesSystem = createParticlesSystem({ ctx });
 if (ENABLE_BIRD) {
@@ -432,6 +494,7 @@ controlsSystem = createControlsSystem({
   nodes: {
     assistToggleButton,
     assistTooltip,
+    assistTooltipDismissButton: assistTooltipCloseButton,
     assistInfoOverlay,
   },
 });
@@ -516,12 +579,14 @@ function resetBall() {
 }
 
 function resetGame() {
+  if (audioSystem) audioSystem.stopCrowd();
   if (!sessionSystem) return;
   sessionSystem.resetGame();
 }
 
 function beginGame() {
   if (!sessionSystem) return;
+  if (audioSystem) audioSystem.startAmbient();
   sessionSystem.beginGame();
 }
 
@@ -634,6 +699,26 @@ function toggleAssist() {
   controlsSystem.toggleAssist();
 }
 
+function updateMuteButton() {
+  if (!muteButton || !audioSystem) return;
+  const muted = audioSystem.isMuted();
+  muteButton.setAttribute("aria-pressed", muted ? "true" : "false");
+  muteButton.setAttribute("aria-label", muted ? "Ενεργοποίηση ήχου" : "Σίγαση ήχου");
+  muteButton.title = muted ? "Ενεργοποίηση ήχου" : "Σίγαση ήχου";
+}
+
+function toggleMute() {
+  if (!audioSystem) return;
+  const muted = audioSystem.toggleMuted();
+  updateMuteButton();
+  debug.log(`audio ${muted ? "muted" : "unmuted"}`, "evt");
+}
+
+function dismissAssistTooltip() {
+  if (!controlsSystem) return;
+  controlsSystem.dismissAssistTooltip();
+}
+
 function updateRoundTimer(now = performance.now()) {
   if (!roundFlowSystem) return;
   roundFlowSystem.updateRoundTimer(now);
@@ -661,6 +746,8 @@ function concludeMiss() {
 
 function registerScore() {
   if (!scoreFlowSystem) return;
+  if (ball.scored || state.finished) return;
+  if (audioSystem) audioSystem.playNet();
   scoreFlowSystem.registerScore();
 }
 
@@ -960,11 +1047,33 @@ function updateBallPhysics() {
   const backboardRight = hoop.centerX + hoop.backboardWidth * 0.5;
   const backboardTop = rimY - 110;
   const backboardBottom = backboardTop + 18;
+  const prevBallTop = ball.prevY - effR;
+  const ballTop = ball.y - effR;
+  const backboardSoundTriggerBottom = backboardBottom + effR + 60;
   const hitsBackboardX = ball.x + effR > backboardLeft && ball.x - effR < backboardRight;
   const hitsBackboardY = ball.y + effR > backboardTop && ball.y - effR < backboardBottom;
+  const descendingIntoBackboard = hitsBackboardX && hitsBackboardY && ball.vy < 0;
+  const backboardNearContact =
+    hitsBackboardX &&
+    ball.vy < 0 &&
+    prevBallTop > backboardSoundTriggerBottom &&
+    ballTop <= backboardSoundTriggerBottom;
+
+  function playBackboardHitSound() {
+    if (ball.backboardHitSoundArmed === false) return;
+    ball.backboardHitSoundArmed = false;
+    if (audioSystem) audioSystem.playRandomHit();
+  }
+
+  if (!descendingIntoBackboard) {
+    ball.backboardHitSoundArmed = true;
+  }
+  if (backboardNearContact) {
+    playBackboardHitSound();
+  }
 
   let backboardHit = false;
-  if (hitsBackboardX && hitsBackboardY && ball.vy < 0) {
+  if (descendingIntoBackboard) {
     const incomingVy = ball.vy;
     const backboardHitX = clamp(ball.x, backboardLeft, backboardRight);
     const backboardHitY = clamp(ball.y - effR, backboardTop, backboardBottom);
@@ -1095,6 +1204,7 @@ function updateBallPhysics() {
       } else if (ball.vy > 0) {
         /* Bounce: kick horizontal velocity on first contact */
         if (!ball.groundBounced) {
+          if (audioSystem) audioSystem.playDrop();
           ball.vx = (Math.random() - 0.5) * 2.5;
           ball.groundBounced = true;
         }
@@ -1263,6 +1373,12 @@ helpCloseButton.addEventListener("click", () => {
 });
 if (assistToggleButton) {
   assistToggleButton.addEventListener("click", toggleAssist);
+}
+if (muteButton) {
+  muteButton.addEventListener("click", toggleMute);
+}
+if (assistTooltipCloseButton) {
+  assistTooltipCloseButton.addEventListener("click", dismissAssistTooltip);
 }
 if (assistInfoCloseButton) {
   assistInfoCloseButton.addEventListener("click", () => {

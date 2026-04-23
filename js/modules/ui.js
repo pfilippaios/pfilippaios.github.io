@@ -32,7 +32,7 @@
       if (playCountValueNode) playCountValueNode.textContent = String(state.playCount);
 
       const missedCount = state.attemptsUsed - state.shotsMade;
-      if (!state.assistMode && missedCount >= 2) {
+      if (!state.assistMode && !state.assistTooltipDismissed && missedCount >= 2) {
         if (assistTooltip) assistTooltip.classList.remove("hidden");
       } else {
         if (assistTooltip) assistTooltip.classList.add("hidden");

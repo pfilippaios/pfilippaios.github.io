@@ -2,7 +2,7 @@
 
 This document explains how the Hoop Rush basketball game works at every level — from the fake-3D
 visual system built on a flat 2D canvas, through the physics simulation, to the scoring state machine.
-Read this **before** making any changes to `game.js`.
+Read this **before** making any changes to `js/game.js`.
 
 ---
 
@@ -453,25 +453,16 @@ Assist is **always on** (`state.assistMode = true`). It provides:
 ```
 pfilippaios.github.io/
 ├── index.html          # HTML structure, overlays, HUD, lead form
-├── game.js             # ALL game logic (~1150 lines)
-│   ├── Lines 1–76      # DOM refs, image loading
-│   ├── Lines 77–143    # Debug system
-│   ├── Lines 144–244   # Constants, state, hoop/ball objects
-│   ├── Lines 245–340   # Canvas setup, HUD, overlays, reset functions
-│   ├── Lines 341–406   # Pointer events, launch mechanics
-│   ├── Lines 407–500   # Game logic (assist, win/loss, miss, score)
-│   ├── Lines 501–818   # Physics engine (updateBallPhysics)
-│   ├── Lines 819–903   # Drawing functions (scale, glow, shadow, sprite)
-│   ├── Lines 904–1064  # More drawing (aim guide, score msg, net, hoop, debug)
-│   ├── Lines 1065–1101 # Main draw/render loop
-│   └── Lines 1102–1153 # Event listeners, boot
-├── style.css           # All styling
+├── js/
+│   └── game.js         # ALL game logic (~1150 lines)
+├── css/
+│   └── style.css       # All styling
 ├── assets/
-│   ├── bg.png          # Background (1536×2752) — court, backboard, pole
-│   ├── ball.png        # Basketball sprite
-│   ├── front-hoop.png  # Front rim arc overlay
-│   ├── net_default.png # Resting net
-│   └── net_expanded.png# Expanded net (ball passing through)
+│   ├── bg.webp         # Background — court, backboard, pole
+│   ├── ball.webp       # Basketball sprite
+│   ├── front-hoop.webp # Front rim arc overlay
+│   ├── net-state-*.webp# Net animation states
+│   └── brand/logo.webp # Brand logo used in overlays/HUD
 └── fonts/
     ├── BergenSans-Regular.otf
     └── BergenSans-SemiBold.otf
