@@ -327,16 +327,16 @@ debug = createDebugSystem({
 });
 
 audioSystem = createAudioSystem({
-  bgMusicSrc: "./assets/sounds/bg_music.mp3",
-  crowdSrc: "./assets/sounds/crowd.mp3",
-  netSrc: "./assets/sounds/net.mp3",
-  dropSrc: "./assets/sounds/drop.mp3",
+  bgMusicSrc: "./assets/audio/bg_music.mp3",
+  crowdSrc: "./assets/audio/crowd.mp3",
+  netSrc: "./assets/audio/net.mp3",
+  dropSrc: "./assets/audio/drop.mp3",
   hitSources: [
-    "./assets/sounds/hit_1.mp3",
-    "./assets/sounds/hit_2.mp3",
-    "./assets/sounds/hit_3.mp3",
-    "./assets/sounds/hit_4.mp3",
-    "./assets/sounds/hit_5.mp3",
+    "./assets/audio/hit_1.mp3",
+    "./assets/audio/hit_2.mp3",
+    "./assets/audio/hit_3.mp3",
+    "./assets/audio/hit_4.mp3",
+    "./assets/audio/hit_5.mp3",
   ],
   bgMusicVolume: 0.16,
   crowdVolume: 0.08,

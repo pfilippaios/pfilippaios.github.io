@@ -18,14 +18,14 @@
     const ballSpinFrameCount = 8;
     const birdFrameCount = 8;
     const netFrameAssets = [
-      { key: "idle", src: "./assets/net-state-01-idle.webp" },
-      { key: "preopen", src: "./assets/net-state-02-preopen.webp" },
-      { key: "catch", src: "./assets/net-state-03-catch.webp" },
-      { key: "drop", src: "./assets/net-state-04-drop.webp" },
-      { key: "stretch", src: "./assets/net-state-05-stretch.webp" },
-      { key: "swayLeft", src: "./assets/net-state-06-sway-left.webp" },
-      { key: "swayRight", src: "./assets/net-state-07-sway-right.webp" },
-      { key: "recoil", src: "./assets/net-state-08-recoil.webp" },
+      { key: "idle", src: "./assets/game/net/net-state-01-idle.webp" },
+      { key: "preopen", src: "./assets/game/net/net-state-02-preopen.webp" },
+      { key: "catch", src: "./assets/game/net/net-state-03-catch.webp" },
+      { key: "drop", src: "./assets/game/net/net-state-04-drop.webp" },
+      { key: "stretch", src: "./assets/game/net/net-state-05-stretch.webp" },
+      { key: "swayLeft", src: "./assets/game/net/net-state-06-sway-left.webp" },
+      { key: "swayRight", src: "./assets/game/net/net-state-07-sway-right.webp" },
+      { key: "recoil", src: "./assets/game/net/net-state-08-recoil.webp" },
     ];
     const ballSpinFrames = Array.from({ length: ballSpinFrameCount }, () => null);
     const netFrames = Array.from({ length: netFrameAssets.length }, () => null);
@@ -79,12 +79,12 @@
     }
 
     const bgImage = loadImageAsset({
-      primarySrc: "./assets/bg.webp",
+      primarySrc: "./assets/game/background/bg.webp",
       priority: "high",
     });
 
     const ballImage = loadImageAsset({
-      primarySrc: "./assets/ball.webp",
+      primarySrc: "./assets/game/ball/ball.webp",
       priority: "high",
     });
 
@@ -95,7 +95,7 @@
     });
 
     const frontHoopImage = loadImageAsset({
-      primarySrc: "./assets/front-hoop.webp",
+      primarySrc: "./assets/game/hoop/front-hoop.webp",
       priority: "high",
       onLoad: () => {
         frontHoopReady = true;
@@ -122,7 +122,7 @@
 
       for (let index = 0; index < ballSpinFrameCount; index++) {
         ballSpinFrames[index] = loadImageAsset({
-          primarySrc: `./assets/ball-spin-${index + 1}.webp`,
+          primarySrc: `./assets/game/ball/ball-spin-${index + 1}.webp`,
           onLoad: () => {},
           onFinalError: () => {},
           label: `ball-spin-${index + 1}`,
@@ -141,7 +141,7 @@
       if (enableBird) {
         for (let index = 0; index < birdFrameCount; index++) {
           birdFrames[index] = loadImageAsset({
-            primarySrc: `./assets/bird-smooth-${index + 1}.webp`,
+            primarySrc: `./assets/game/bird/bird-smooth-${index + 1}.webp`,
             onLoad: () => {},
             onFinalError: () => {},
             label: `bird-frame-${index + 1}`,
@@ -151,7 +151,7 @@
 
       crowdSequenceKeys.forEach((key) => {
         loadImageAsset({
-          primarySrc: `./assets/crowd_${key}.webp`,
+          primarySrc: `./assets/game/crowd/crowd_${key}.webp`,
           onLoad: (image) => {
             crowdSequenceImages[key] = image;
             settleCrowdSequences();
