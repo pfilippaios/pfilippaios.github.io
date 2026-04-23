@@ -1,15 +1,19 @@
 (function initHoopRushAudio(global) {
   const HoopRushModules = global.HoopRushModules || (global.HoopRushModules = {});
 
-  function createAudioElement(src, { loop = false, volume = 1 } = {}) {
+  function createAudioElement(src, { loop = false, volume = 1, preload = "none", autoLoad = false } = {}) {
     const audio = new Audio(src);
-    audio.preload = "auto";
+    audio.preload = preload;
     audio.loop = loop;
     audio.volume = volume;
     audio.__baseVolume = volume;
+    audio.__loadRequested = false;
     audio.playsInline = true;
     audio.setAttribute("playsinline", "");
-    audio.load();
+    if (autoLoad) {
+      audio.__loadRequested = true;
+      audio.load();
+    }
     return audio;
   }
 
@@ -31,8 +35,15 @@
     }
   }
 
-  function createPool(src, size, volume) {
-    return Array.from({ length: size }, () => createAudioElement(src, { volume }));
+  function ensureAudioLoaded(audio, preload = "auto") {
+    if (audio.__loadRequested) return;
+    audio.__loadRequested = true;
+    audio.preload = preload;
+    audio.load();
+  }
+
+  function createPool(src, size, volume, options) {
+    return Array.from({ length: size }, () => createAudioElement(src, { volume, ...options }));
   }
 
   function createAudioSystem({
@@ -55,19 +66,20 @@
   }) {
     let muted = false;
     let lastHitAt = -Infinity;
+    let effectsPrimed = false;
 
     function syncMuted(audio) {
       audio.muted = muted;
       return audio;
     }
 
-    const crowdLoop = createAudioElement(crowdSrc, { loop: false, volume: 0 });
+    const crowdLoop = createAudioElement(crowdSrc, { loop: false, volume: 0, preload: "none" });
     const bgMusicLoop = bgMusicSrc
-      ? createAudioElement(bgMusicSrc, { loop: true, volume: 0 })
+      ? createAudioElement(bgMusicSrc, { loop: true, volume: 0, preload: "none" })
       : null;
-    const netPool = createPool(netSrc, 1, netVolume);
-    const dropPool = createPool(dropSrc, 1, dropVolume);
-    const hitPools = hitSources.map((src) => createPool(src, 1, hitVolume));
+    const netPool = createPool(netSrc, 1, netVolume, { preload: "none" });
+    const dropPool = createPool(dropSrc, 1, dropVolume, { preload: "none" });
+    const hitPools = hitSources.map((src) => createPool(src, 1, hitVolume, { preload: "none" }));
     const loopStates = {
       crowd: {
         audio: syncMuted(crowdLoop),
@@ -239,6 +251,7 @@
       if (!pool.length) return;
 
       const audio = pool.find((item) => item.paused || item.ended) || pool[0];
+      ensureAudioLoaded(audio);
       resetAudio(audio);
 
       const playPromise = audio.play();
@@ -262,6 +275,7 @@
       if (loopState.started && !loopState.audio.paused) return;
 
       loopState.started = true;
+      ensureAudioLoaded(loopState.audio);
       if (typeof loopState.segmentStartMs === "number") {
         try {
           loopState.audio.currentTime = loopState.segmentStartMs / 1000;
@@ -330,6 +344,12 @@
       startCrowd(options);
     }
 
+    function primeEffects() {
+      if (effectsPrimed) return;
+      effectsPrimed = true;
+      [...netPool, ...dropPool, ...hitPools.flat()].forEach((audio) => ensureAudioLoaded(audio));
+    }
+
     function playNet() {
       playFromPool(netPool, "net");
     }
@@ -372,6 +392,7 @@
       startCrowd,
       stopCrowd,
       startAmbient,
+      primeEffects,
       playNet,
       playDrop,
       playRandomHit,

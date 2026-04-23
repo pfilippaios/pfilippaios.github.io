@@ -92,9 +92,34 @@ let renderSystem = null;
 let debugRimSystem = null;
 let debug = null;
 let crowdSequenceSourceImages = null;
+let crowdSequenceBuildScheduled = false;
+
+function scheduleCrowdSequenceBuild() {
+  if (!crowdSystem || !crowdSequenceSourceImages || crowdSequenceBuildScheduled) return;
+
+  crowdSequenceBuildScheduled = true;
+  const buildSequences = () => {
+    crowdSequenceBuildScheduled = false;
+    if (!crowdSystem || !crowdSequenceSourceImages) return;
+    try {
+      crowdSystem.setSequencesFromImages(crowdSequenceSourceImages);
+    } catch (error) {
+      console.warn("Failed to build crowd animation frames", error);
+      crowdSystem.clearSequences();
+    }
+  };
+
+  if (typeof window.requestIdleCallback === "function") {
+    window.requestIdleCallback(() => buildSequences(), { timeout: 500 });
+    return;
+  }
+
+  window.setTimeout(buildSequences, 32);
+}
 
 /* ─── Image assets ─── */
 const assetSystem = createAssetSystem({
+  enableBird: ENABLE_BIRD,
   onAllReady: () => {
     setupCanvas();
     resetBall();
@@ -104,12 +129,7 @@ const assetSystem = createAssetSystem({
   },
   onCrowdSequencesReady: (images) => {
     crowdSequenceSourceImages = images;
-    try {
-      if (crowdSystem) crowdSystem.setSequencesFromImages(images);
-    } catch (error) {
-      console.warn("Failed to build crowd animation frames", error);
-      if (crowdSystem) crowdSystem.clearSequences();
-    }
+    scheduleCrowdSequenceBuild();
   },
   onCrowdSequencesError: () => {
     if (crowdSystem) crowdSystem.clearSequences();
@@ -323,7 +343,6 @@ audioSystem = createAudioSystem({
   debug,
 });
 updateMuteButton();
-audioSystem.startMusic({ silentFailure: true });
 
 function updateMuteButtonLayer() {
   if (!muteButton || !leadForm) return;
@@ -338,6 +357,7 @@ function removeIntroMusicUnlockListeners() {
 
 function unlockIntroMusicOnInteraction() {
   if (!audioSystem) return;
+  audioSystem.primeEffects();
   audioSystem.startMusic({ silentFailure: true });
   removeIntroMusicUnlockListeners();
 }
@@ -383,13 +403,7 @@ crowdSystem = createCrowdSystem({
   hashString01,
 });
 if (crowdSequenceSourceImages) {
-  console.log("Applying pre-loaded crowd sequences...");
-  try {
-    crowdSystem.setSequencesFromImages(crowdSequenceSourceImages);
-  } catch (error) {
-    console.warn("Failed to build crowd animation frames", error);
-    crowdSystem.clearSequences();
-  }
+  scheduleCrowdSequenceBuild();
 }
 uiSystem = createUiSystem({
   nodes: {
