@@ -565,6 +565,21 @@ canvas {
   color: #d0c8d8;
 }
 
+.modal-graphic {
+  display: block;
+  width: min(100%, 320px);
+  height: auto;
+  margin: 0 auto 18px;
+  padding: 10px;
+  box-sizing: border-box;
+  background: rgba(18, 10, 32, 0.88);
+  border-radius: 10px;
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.22);
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
 .overlay-card strong,
 .lead-card strong,
 .help-list strong {
