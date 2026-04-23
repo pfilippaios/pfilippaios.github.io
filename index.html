@@ -10,7 +10,7 @@
       href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Chakra+Petch:wght@400;500;600;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="./style.css" />
+    <link rel="stylesheet" href="./css/style.css" />
   </head>
   <body>
     <div class="app-shell">
@@ -18,7 +18,7 @@
         <section class="phone-stage">
           <header class="topbar">
             <div class="brand-lockup">
-              <img class="brand-logo" src="./logo.png" alt="ΦΥΣΙΚΟ ΑΕΡΙΟ" />
+              <img class="brand-logo" src="./assets/brand/logo.webp" alt="ΦΥΣΙΚΟ ΑΕΡΙΟ" />
               <h1>Hoop Rush</h1>
             </div>
           </header>
@@ -47,14 +47,20 @@
             <div id="assistTooltip" class="assist-tooltip hidden">
               <div class="tooltip-arrow"></div>
               Ενεργοποίησε τη βοήθεια αν δυσκολεύεσαι!
-            </div>            <div class="score-strip" aria-label="κατάσταση παιχνιδιού">
-              <article>
-                <span class="label">Καλάθια</span>
-                <strong id="madeValue">0/3</strong>
+            </div>
+            <div class="scoreboard" aria-label="πίνακας σκορ">
+              <article class="scoreboard-side scoreboard-home">
+                <span class="scoreboard-label">ΚΑΛΑΘΙΑ</span>
+                <strong class="scoreboard-value" id="madeValue">0/3</strong>
               </article>
-              <article>
-                <span class="label">Βολές</span>
-                <strong id="triesLeft">5/5</strong>
+              <article class="scoreboard-center">
+                <strong class="scoreboard-timer" id="timerValue">5:00</strong>
+                <span class="scoreboard-label">PERIOD</span>
+                <strong class="scoreboard-period" id="playCountValue">0</strong>
+              </article>
+              <article class="scoreboard-side scoreboard-away">
+                <span class="scoreboard-label">ΒΟΛΕΣ</span>
+                <strong class="scoreboard-value" id="triesLeft">0/5</strong>
               </article>
             </div>
             <div class="assist-banner hidden" id="assistBanner" aria-live="polite">
@@ -86,7 +92,7 @@
                   Πάμε να παίξουμε
                 </button>
                 <div class="aux-footer">
-                  <img class="aux-footer-logo" src="./logo.png" alt="ΦΥΣΙΚΟ ΑΕΡΙΟ" />
+                  <img class="aux-footer-logo" src="./assets/brand/logo.webp" alt="ΦΥΣΙΚΟ ΑΕΡΙΟ" />
                   <nav class="aux-footer-nav" aria-label="Νομικές πληροφορίες">
                     <button class="aux-link" type="button" data-aux-page="terms">Όροι χρήσης</button>
                     <button class="aux-link" type="button" data-aux-page="contest">Πληροφορίες διαγωνισμού</button>
@@ -111,7 +117,7 @@
                 </p>
                 <button class="primary-button" type="button" id="helpCloseButton">Πάμε</button>
                 <div class="aux-footer">
-                  <img class="aux-footer-logo" src="./logo.png" alt="ΦΥΣΙΚΟ ΑΕΡΙΟ" />
+                  <img class="aux-footer-logo" src="./assets/brand/logo.webp" alt="ΦΥΣΙΚΟ ΑΕΡΙΟ" />
                   <nav class="aux-footer-nav" aria-label="Νομικές πληροφορίες">
                     <button class="aux-link" type="button" data-aux-page="terms">Όροι χρήσης</button>
                     <button class="aux-link" type="button" data-aux-page="contest">Πληροφορίες διαγωνισμού</button>
@@ -173,13 +179,19 @@
               </div>
             </div>
 
-            <form class="lead-card hidden" id="leadForm">
+            <form
+              class="lead-card hidden"
+              id="leadForm"
+              data-submit-payload-type="json"
+              data-pending-message="Γίνεται καταχώρηση της συμμετοχής σου..."
+            >
               <div class="lead-copy">
                 <h2>Συμμετοχή στην κλήρωση</h2>
                 <p>
-                  Συμπλήρωσε τα στοιχεία σου για να καταχωρήσεις<br />
-                  τη συμμετοχή σου στην κλήρωση για δώρα<br />
-                  από το <strong class="copy-accent">ΦΥΣΙΚΟ ΑΕΡΙΟ</strong>.
+                  Ολοκλήρωσες το <strong class="copy-accent">Hoop Rush</strong>;<br />
+                  Συμπλήρωσε τη φόρμα για να κατοχυρώσεις τη συμμετοχή σου<br />
+                  για projector, ρεύμα όλης της χρονιάς<br />
+                  και πολλά ακόμα πλούσια δώρα από το <strong>ΦΥΣΙΚΟ ΑΕΡΙΟ</strong>.
                 </p>
               </div>
 
@@ -199,18 +211,35 @@
                   <input type="tel" name="phone" id="fieldPhone" required />
                 </div>
 
-                <div class="form-field">
-                  <label for="fieldCity">Πόλη <span class="req">*</span></label>
-                  <input type="text" name="city" id="fieldCity" required />
+                <div class="form-consent">
+                  <input type="checkbox" name="consent" id="fieldConsent" required />
+                  <label for="fieldConsent">
+                    Συμφωνώ με τους
+                    <button class="aux-link inline-link" type="button" data-aux-page="terms">Όρους Συμμετοχής</button>
+                    και έχω διαβάσει την
+                    <button class="aux-link inline-link" type="button" data-aux-page="privacy">Πολιτική Απορρήτου</button>.
+                    Συναινώ να επικοινωνήσουν μαζί μου οι διοργανωτές αποκλειστικά για τον παρόντα διαγωνισμό.
+                  </label>
                 </div>
 
                 <button class="primary-button" type="submit">Υποβολή</button>
               </div>
-              <p class="form-note" id="formFeedback" aria-live="polite">
+              <p
+                class="form-note"
+                id="formFeedback"
+                aria-live="polite"
+                data-default-message="Η συμμετοχή σου καταχωρείται μόνο μετά την υποβολή της φόρμας."
+                data-status="idle"
+              >
                 Η συμμετοχή σου καταχωρείται μόνο μετά την υποβολή της φόρμας.
               </p>
+              <p class="form-legal">
+                Τα πεδία με * είναι υποχρεωτικά. Η κλήρωση θα πραγματοποιηθεί έως 31/06/2025.
+                Δεν απαιτείται αγορά προϊόντος ή υπηρεσίας από το ΦΥΣΙΚΟ ΑΕΡΙΟ.
+                Ισχύουν όροι και προϋποθέσεις.
+              </p>
               <div class="aux-footer">
-                <img class="aux-footer-logo" src="./logo.png" alt="ΦΥΣΙΚΟ ΑΕΡΙΟ" />
+                <img class="aux-footer-logo" src="./assets/brand/logo.webp" alt="ΦΥΣΙΚΟ ΑΕΡΙΟ" />
                 <nav class="aux-footer-nav" aria-label="Νομικές πληροφορίες">
                   <button class="aux-link" type="button" data-aux-page="terms">Όροι χρήσης</button>
                   <button class="aux-link" type="button" data-aux-page="contest">Πληροφορίες διαγωνισμού</button>
@@ -273,6 +302,36 @@
       <label class="debug-label" for="debugFileLog">Session log</label>
       <textarea id="debugFileLog" readonly spellcheck="false"></textarea>
     </div>
-    <script src="./game.js"></script>
+    <script>
+      window.HoopRushLeadFormConfig = window.HoopRushLeadFormConfig || {
+        // Maintainer setup:
+        // 1. Point `endpoint` to Formspree or your own serverless/API endpoint.
+        // 2. Keep `payloadType` as "json" unless the endpoint expects multipart/form-data.
+        // 3. Do not place SMTP credentials in frontend code.
+        endpoint: "",
+        method: "POST",
+        payloadType: "json",
+        extraFields: {
+          game: "Hoop Rush",
+          brand: "ΦΥΣΙΚΟ ΑΕΡΙΟ",
+        },
+      };
+    </script>
+    <script src="./js/modules/utils.js"></script>
+    <script src="./js/modules/assets.js"></script>
+    <script src="./js/modules/particles.js"></script>
+    <script src="./js/modules/bird.js"></script>
+    <script src="./js/modules/crowd.js"></script>
+    <script src="./js/modules/lead-form.js"></script>
+    <script src="./js/modules/ui.js"></script>
+    <script src="./js/modules/session.js"></script>
+    <script src="./js/modules/debug.js"></script>
+    <script src="./js/modules/debug-rim.js"></script>
+    <script src="./js/modules/round-flow.js"></script>
+    <script src="./js/modules/score-flow.js"></script>
+    <script src="./js/modules/controls.js"></script>
+    <script src="./js/modules/net.js"></script>
+    <script src="./js/modules/render.js"></script>
+    <script src="./js/game.js"></script>
   </body>
 </html>
