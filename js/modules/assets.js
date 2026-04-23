@@ -151,7 +151,7 @@
 
       crowdSequenceKeys.forEach((key) => {
         loadImageAsset({
-          primarySrc: `./assets/crowd_${key}.png`,
+          primarySrc: `./assets/crowd_${key}.webp`,
           onLoad: (image) => {
             crowdSequenceImages[key] = image;
             settleCrowdSequences();

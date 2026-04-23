@@ -13,6 +13,38 @@
     clamp,
     hashString01,
   }) {
+    const CROWD_REFERENCE_WIDTHS = {
+      left: 2001,
+      center: 2030,
+      right: 2047,
+    };
+    const CROWD_REFERENCE_SPANS = {
+      left: [
+        { start: 0, end: 286 },
+        { start: 358, end: 630 },
+        { start: 696, end: 966 },
+        { start: 1028, end: 1296 },
+        { start: 1378, end: 1656 },
+        { start: 1732, end: 2000 },
+      ],
+      center: [
+        { start: 0, end: 289 },
+        { start: 360, end: 641 },
+        { start: 709, end: 994 },
+        { start: 1038, end: 1319 },
+        { start: 1386, end: 1672 },
+        { start: 1742, end: 2029 },
+      ],
+      right: [
+        { start: 0, end: 286 },
+        { start: 354, end: 679 },
+        { start: 725, end: 998 },
+        { start: 1050, end: 1365 },
+        { start: 1418, end: 1687 },
+        { start: 1776, end: 2046 },
+      ],
+    };
+
     let crowdSequences = null;
     let crowdInstances = [];
     let crowdSeatMap = null;
@@ -42,7 +74,7 @@
 
       for (const [key, image] of Object.entries(images || {})) {
         if (!image) continue;
-        const frames = createCrowdFramesFromImage(image);
+        const frames = createCrowdFramesFromImage(image, key);
         if (frames && frames.length) {
           sequences[key] = frames;
         }
@@ -58,10 +90,12 @@
       };
     }
 
-    function createCrowdFramesFromImage(image) {
+    function createCrowdFramesFromImage(image, sequenceKey = "") {
       const width = image.naturalWidth || image.width;
       const height = image.naturalHeight || image.height;
       if (width === 0 || height === 0) return [];
+      const referenceWidth = CROWD_REFERENCE_WIDTHS[sequenceKey] || width;
+      const scaleCompensation = referenceWidth / width;
       
       const sourceCanvas = document.createElement("canvas");
       sourceCanvas.width = width;
@@ -118,12 +152,13 @@
       } catch (e) {
         console.warn("Crowd system: getImageData failed (CORS), using fallback spans");
         pixelData = null; // Do not attempt precise Y-crop when CORS fails
-        if (width === 2001) { // crowd_left
-          spans = [{start: 0, end: 286}, {start: 358, end: 630}, {start: 696, end: 966}, {start: 1028, end: 1296}, {start: 1378, end: 1656}, {start: 1732, end: 2000}];
-        } else if (width === 2030) { // crowd_center
-          spans = [{start: 0, end: 289}, {start: 360, end: 641}, {start: 709, end: 994}, {start: 1038, end: 1319}, {start: 1386, end: 1672}, {start: 1742, end: 2029}];
-        } else if (width === 2047) { // crowd_right
-          spans = [{start: 0, end: 286}, {start: 354, end: 679}, {start: 725, end: 998}, {start: 1050, end: 1365}, {start: 1418, end: 1687}, {start: 1776, end: 2046}];
+        const referenceSpans = CROWD_REFERENCE_SPANS[sequenceKey];
+        if (referenceSpans?.length) {
+          const scale = width / referenceWidth;
+          spans = referenceSpans.map((span) => ({
+            start: Math.round(span.start * scale),
+            end: Math.round(span.end * scale),
+          }));
         } else {
           // Generic 6-frame slice
           const fw = Math.floor(width / 6);
@@ -134,11 +169,11 @@
       }
 
       return spans
-        .map((span) => createCrowdFrameCanvas(sourceCanvas, pixelData, span))
+        .map((span) => createCrowdFrameCanvas(sourceCanvas, pixelData, span, scaleCompensation))
         .filter(Boolean);
     }
 
-    function createCrowdFrameCanvas(sourceCanvas, pixelData, span) {
+    function createCrowdFrameCanvas(sourceCanvas, pixelData, span, scaleCompensation = 1) {
       let minY = 0;
       let maxY = sourceCanvas.height - 1;
 
@@ -175,6 +210,7 @@
         width,
         cropHeight,
       );
+      frameCanvas.hoopRushScaleCompensation = scaleCompensation;
 
       return frameCanvas;
     }
@@ -317,6 +353,7 @@
     function drawCrowdFan(instance, now) {
       const frame = getCrowdFrame(instance, now);
       if (!frame) return;
+      const scaleCompensation = Number(frame.hoopRushScaleCompensation) || 1;
 
       const wave = Math.sin(now * instance.waveSpeed + instance.bobPhase);
       const bob = wave * instance.bobAmplitude;
@@ -324,8 +361,8 @@
       const tilt = wave * instance.tiltAmplitude;
       const pulseX = 1 + Math.max(0, wave) * 0.018;
       const pulseY = 1 + Math.max(0, -wave) * 0.014;
-      const spriteWidth = frame.width * instance.scale;
-      const spriteHeight = frame.height * instance.scale;
+      const spriteWidth = frame.width * instance.scale * scaleCompensation;
+      const spriteHeight = frame.height * instance.scale * scaleCompensation;
       const visibleHeight = Math.round(spriteHeight * instance.visibleRatio);
       
       // Move fans slightly lower relative to their seat mapping
