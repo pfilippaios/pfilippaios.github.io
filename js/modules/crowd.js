@@ -132,8 +132,8 @@
 
         sourceCtx.putImageData(frame, 0, 0);
 
-        const mergeGapPx = Math.max(20, Math.round(sourceCanvas.width * 0.035));
-        const minSpanPx = Math.max(40, Math.round(sourceCanvas.width * 0.05));
+        const mergeGapPx = Math.max(8, Math.round(sourceCanvas.width * 0.012));
+        const minSpanPx = Math.max(20, Math.round(sourceCanvas.width * 0.025));
         let spanStart = null;
 
         for (let x = 0; x < occupiedColumns.length; x++) {
