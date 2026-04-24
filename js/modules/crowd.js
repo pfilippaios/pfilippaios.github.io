@@ -132,6 +132,8 @@
 
         sourceCtx.putImageData(frame, 0, 0);
 
+        const mergeGapPx = Math.max(20, Math.round(sourceCanvas.width * 0.035));
+        const minSpanPx = Math.max(40, Math.round(sourceCanvas.width * 0.05));
         let spanStart = null;
 
         for (let x = 0; x < occupiedColumns.length; x++) {
@@ -141,14 +143,26 @@
           }
 
           if (spanStart !== null) {
-            spans.push({ start: spanStart, end: x - 1 });
+            const prev = spans[spans.length - 1];
+            if (prev && spanStart - prev.end - 1 <= mergeGapPx) {
+              prev.end = x - 1;
+            } else {
+              spans.push({ start: spanStart, end: x - 1 });
+            }
             spanStart = null;
           }
         }
 
         if (spanStart !== null) {
-          spans.push({ start: spanStart, end: occupiedColumns.length - 1 });
+          const prev = spans[spans.length - 1];
+          if (prev && spanStart - prev.end - 1 <= mergeGapPx) {
+            prev.end = occupiedColumns.length - 1;
+          } else {
+            spans.push({ start: spanStart, end: occupiedColumns.length - 1 });
+          }
         }
+
+        spans = spans.filter((span) => span.end - span.start + 1 >= minSpanPx);
       } catch (e) {
         console.warn("Crowd system: getImageData failed (CORS), using fallback spans");
         pixelData = null; // Do not attempt precise Y-crop when CORS fails

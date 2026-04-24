@@ -165,6 +165,10 @@ const MAX_ATTEMPTS = 5;
 const WIN_THRESHOLD = 3;
 const ROUND_DURATION_MS = 5 * 60 * 1000;
 const PLAY_COUNT_STORAGE_KEY = "hoopRushPlayCount";
+const TARGET_FPS = 60;
+const FIXED_STEP_MS = 1000 / TARGET_FPS;
+const MAX_FRAME_DELTA_MS = 250;
+const MAX_STEPS_PER_RENDER = 5;
 
 const AUX_PAGES = {
   terms: {
@@ -1346,13 +1350,46 @@ function drawScene() {
   renderSystem.drawScene();
 }
 
-function render(now = performance.now()) {
-  ctx.clearRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+let lastFrameTimeMs = null;
+let simulationClockMs = null;
+let simulationAccumulatorMs = 0;
+
+function stepSimulation(stepNowMs) {
   if (birdSystem) birdSystem.update();
   updateBallPhysics();
-  updateRoundTimer(now);
+  updateRoundTimer(stepNowMs);
   updateNetAnimation();
   if (particlesSystem) particlesSystem.update();
+}
+
+function render(now = performance.now()) {
+  if (lastFrameTimeMs === null) {
+    lastFrameTimeMs = now;
+    simulationClockMs = now;
+  }
+
+  const frameDeltaMs = clamp(now - lastFrameTimeMs, 0, MAX_FRAME_DELTA_MS);
+  lastFrameTimeMs = now;
+  simulationAccumulatorMs += frameDeltaMs;
+
+  let steps = 0;
+  while (simulationAccumulatorMs >= FIXED_STEP_MS && steps < MAX_STEPS_PER_RENDER) {
+    simulationClockMs += FIXED_STEP_MS;
+    stepSimulation(simulationClockMs);
+    simulationAccumulatorMs -= FIXED_STEP_MS;
+    steps += 1;
+  }
+
+  if (steps === MAX_STEPS_PER_RENDER && simulationAccumulatorMs >= FIXED_STEP_MS) {
+    simulationAccumulatorMs = 0;
+  }
+
+  if (steps === 0) {
+    state.animationFrame = window.requestAnimationFrame(render);
+    return;
+  }
+
+  ctx.clearRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
   drawScene();
   if (particlesSystem) particlesSystem.draw();
   if (DEBUG_ENABLED) {
