@@ -13,7 +13,9 @@
     let debugApex = Infinity;
 
     function drawDebugRim() {
-      if (!constants.DEBUG_ENABLED) return;
+      const debugEnabled =
+        typeof constants.DEBUG_ENABLED === "function" ? constants.DEBUG_ENABLED() : constants.DEBUG_ENABLED;
+      if (!debugEnabled) return;
 
       const effR = constants.BALL_COLLISION_RADIUS;
       const rimY = hoop.rimY;

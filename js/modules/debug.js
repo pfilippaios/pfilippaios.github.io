@@ -19,6 +19,8 @@
       debugToggleBtn,
     } = nodes;
 
+    let active = Boolean(enabled);
+
     const debug = {
       entries: [],
       fileLog: [],
@@ -27,6 +29,28 @@
       max: 120,
       markerMax: 28,
       markerTtlMs: 2800,
+      isEnabled() {
+        return active;
+      },
+      setEnabled(nextActive) {
+        active = Boolean(nextActive);
+        if (debugPanel) {
+          debugPanel.hidden = !active;
+          debugPanel.style.display = active ? "flex" : "none";
+          if (active) debugPanel.classList.remove("collapsed");
+        }
+        if (debugToggleBtn) debugToggleBtn.textContent = "Hide";
+        if (active) {
+          global.__hoopRushDebug = debug;
+          this.renderLog();
+          this.renderFileLog();
+          this.renderState();
+          this.log("debug enabled", "evt");
+        }
+      },
+      toggleEnabled() {
+        this.setEnabled(!active);
+      },
       log(msg, level = "info") {
         const t = (performance.now() / 1000).toFixed(2);
         this.entries.push({ t, msg, level });
@@ -83,7 +107,7 @@
         }
       },
       recordMarker({ x, y, type, label, color, detail = "" }) {
-        if (!enabled) return;
+        if (!active) return;
         const createdAt = performance.now();
         const marker = { x, y, type, label, color, detail, createdAt };
         this.markers.push(marker);
@@ -112,15 +136,15 @@ logLines=${this.fileLog.length} markers=${this.markers.length} lastHit=${lastHit
       },
     };
 
-    if (!enabled && debugPanel) {
-      debugPanel.hidden = true;
-      debugPanel.style.display = "none";
+    if (debugPanel) {
+      debugPanel.hidden = !active;
+      debugPanel.style.display = active ? "flex" : "none";
     }
 
-    if (enabled && debugClearBtn) {
+    if (debugClearBtn) {
       debugClearBtn.addEventListener("click", () => debug.clear());
     }
-    if (enabled && debugCopyBtn) {
+    if (debugCopyBtn) {
       debugCopyBtn.addEventListener("click", async () => {
         try {
           await debug.copy();
@@ -130,10 +154,10 @@ logLines=${this.fileLog.length} markers=${this.markers.length} lastHit=${lastHit
         }
       });
     }
-    if (enabled && debugDownloadBtn) {
+    if (debugDownloadBtn) {
       debugDownloadBtn.addEventListener("click", () => debug.download());
     }
-    if (enabled && debugToggleBtn) {
+    if (debugToggleBtn) {
       debugToggleBtn.addEventListener("click", () => {
         if (!debugPanel) return;
         debugPanel.classList.toggle("collapsed");
@@ -141,18 +165,37 @@ logLines=${this.fileLog.length} markers=${this.markers.length} lastHit=${lastHit
       });
     }
 
-    if (enabled) {
-      global.__hoopRushDebug = debug;
-      global.addEventListener("keydown", (event) => {
+    global.__hoopRushDebug = debug;
+    global.addEventListener("keydown", (event) => {
+      const tagName = event.target?.tagName;
+      const isEditableTarget =
+        event.target?.isContentEditable || tagName === "INPUT" || tagName === "TEXTAREA" || tagName === "SELECT";
+      if (isEditableTarget) return;
+
+      if (event.ctrlKey && event.shiftKey && (event.key === "d" || event.key === "D")) {
+        event.preventDefault();
+        debug.toggleEnabled();
+        return;
+      }
+      if (event.key === "d" || event.key === "D") {
+        event.preventDefault();
+        if (!active) {
+          debug.setEnabled(true);
+          return;
+        }
         if (!debugPanel) return;
-        if (event.key === "d" || event.key === "D") {
-          debugPanel.classList.toggle("collapsed");
-          if (debugToggleBtn) debugToggleBtn.textContent = debugPanel.classList.contains("collapsed") ? "Show" : "Hide";
-        }
-        if (event.key === "l" || event.key === "L") {
-          debug.download();
-        }
-      });
+        debugPanel.classList.toggle("collapsed");
+        if (debugToggleBtn) debugToggleBtn.textContent = debugPanel.classList.contains("collapsed") ? "Show" : "Hide";
+        return;
+      }
+      if (!active) return;
+      if (event.key === "l" || event.key === "L") {
+        debug.download();
+      }
+    });
+
+    if (active) {
+      global.__hoopRushDebug = debug;
       debug.renderLog();
       debug.renderFileLog();
       debug.log("boot", "evt");

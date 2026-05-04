@@ -3,7 +3,7 @@ const ENABLE_BIRD = false;
 const ENABLE_CROWD = false;
 const TEST_MODE = false;
 const SLOW_MO = 1.0;
-const DEBUG_ENABLED = true;
+const DEBUG_ENABLED = false;
 
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
@@ -559,7 +559,7 @@ renderSystem = createRenderSystem({
     drawNet,
     drawFrontHoop,
     drawDebugRim: () => {
-      if (DEBUG_ENABLED) drawDebugRim();
+      if (debug.isEnabled()) drawDebugRim();
     },
   },
 });
@@ -783,7 +783,7 @@ debugRimSystem = createDebugRimSystem({
   ball,
   hoop,
   constants: {
-    DEBUG_ENABLED,
+    DEBUG_ENABLED: () => debug.isEnabled(),
     BALL_COLLISION_RADIUS,
     BALL_DISPLAY_RADIUS,
     GAME_WIDTH,
@@ -1399,7 +1399,7 @@ function render(now = performance.now()) {
   ctx.clearRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
   drawScene();
   if (particlesSystem) particlesSystem.draw();
-  if (DEBUG_ENABLED) {
+  if (debug.isEnabled()) {
     debug.renderState();
   }
   state.animationFrame = window.requestAnimationFrame(render);
@@ -1472,55 +1472,60 @@ replayButton.addEventListener("click", () => {
 });
 
 /* ─── Debug modal triggers ─── */
-if (DEBUG_ENABLED) {
-  document.querySelectorAll("[data-dbg-modal]").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const key = btn.dataset.dbgModal;
-      switch (key) {
-        case "start":
-          startOverlay.classList.add("visible");
-          break;
-        case "help":
-          helpOverlay.classList.add("visible");
-          break;
-        case "restart":
-          restartConfirmOverlay.classList.add("visible");
-          break;
-        case "win":
-          showOverlay({
-            eyebrow: "",
-            title: "3/3! Είσαι μέσα!",
-            body: "Είσαι ένα βήμα πριν την συμμετοχή σου στην κλήρωση!",
-            buttonLabel: "Διεκδίκησε το δώρο σου",
-            showReplay: true,
-            variant: "win",
-          });
-          break;
-        case "loss":
-          showOverlay({
-            eyebrow: "Τέλος",
-            title: "Δεν τα κατάφερες",
-            body: "Δοκίμασε ξανά!",
-            buttonLabel: "Παίξε ξανά",
-          });
-          break;
-        case "form":
-          leadForm.classList.remove("hidden");
-          break;
-        case "terms":
-          openAuxPage("terms");
-          break;
-        case "contest":
-          openAuxPage("contest");
-          break;
-        case "privacy":
-          openAuxPage("privacy");
-          break;
-      }
-    });
+document.querySelectorAll("[data-dbg-modal]").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    if (!debug.isEnabled()) return;
+    const key = btn.dataset.dbgModal;
+    switch (key) {
+      case "start":
+        startOverlay.classList.add("visible");
+        break;
+      case "help":
+        helpOverlay.classList.add("visible");
+        break;
+      case "restart":
+        restartConfirmOverlay.classList.add("visible");
+        break;
+      case "win":
+        showOverlay({
+          eyebrow: "",
+          title: "3/3! Είσαι μέσα!",
+          body: "Είσαι ένα βήμα πριν την συμμετοχή σου στην κλήρωση!",
+          buttonLabel: "Διεκδίκησε το δώρο σου",
+          showReplay: true,
+          variant: "win",
+        });
+        break;
+      case "loss":
+        showOverlay({
+          eyebrow: "Τέλος",
+          title: "Δεν τα κατάφερες",
+          body: "Δοκίμασε ξανά!",
+          buttonLabel: "Παίξε ξανά",
+        });
+        break;
+      case "form":
+        leadForm.classList.remove("hidden");
+        break;
+      case "terms":
+        openAuxPage("terms");
+        break;
+      case "contest":
+        openAuxPage("contest");
+        break;
+      case "privacy":
+        openAuxPage("privacy");
+        break;
+      default:
+        break;
+    }
   });
+});
 
-  document.getElementById("dbgHideAll").addEventListener("click", () => {
+const dbgHideAll = document.getElementById("dbgHideAll");
+if (dbgHideAll) {
+  dbgHideAll.addEventListener("click", () => {
+    if (!debug.isEnabled()) return;
     startOverlay.classList.remove("visible");
     helpOverlay.classList.remove("visible");
     restartConfirmOverlay.classList.remove("visible");

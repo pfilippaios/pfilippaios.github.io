@@ -38,14 +38,32 @@
 
     const rimDepthScale = depthScale(clamp((DEPTH_ANCHOR_Y - hoop.rimY) / 3.93, 0, 110));
 
+    const HOOP_PROXIMITY_OUTER = 160;
+    const HOOP_PROXIMITY_INNER = 30;
+    const HOOP_PROXIMITY_MAX_BOOST = 0.28;
+
+    function hoopProximityBoost() {
+      const dx = ball.x - hoop.centerX;
+      const dy = ball.y - hoop.rimY;
+      const dist = Math.hypot(dx, dy);
+      if (dist >= HOOP_PROXIMITY_OUTER) return 1;
+      const raw = clamp(
+        (HOOP_PROXIMITY_OUTER - dist) / (HOOP_PROXIMITY_OUTER - HOOP_PROXIMITY_INNER),
+        0,
+        1,
+      );
+      const eased = raw * raw * (3 - 2 * raw);
+      return 1 + eased * HOOP_PROXIMITY_MAX_BOOST;
+    }
+
     function getDynamicScale() {
       if (ball.hoopState === "entering" || ball.hoopState === "scored") {
-        return rimDepthScale;
+        return rimDepthScale * hoopProximityBoost();
       }
       if (!ball.active && !ball.scored) {
         return BALL_REST_SCALE;
       }
-      return depthScale(ball.z);
+      return depthScale(ball.z) * hoopProximityBoost();
     }
 
     function getBallSpinFrameIndex(angle = ball.angle) {
