@@ -1382,9 +1382,6 @@ canvas {
   .aux-link {
     font-size: 11px;
   }
-  .aux-overlay-card {
-    max-height: none;
-  }
   .restart-fab,
   .help-fab,
   .assist-fab,
