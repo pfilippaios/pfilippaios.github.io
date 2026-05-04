@@ -209,7 +209,7 @@ if (!IS_LOCAL_ENV && debugPanel) {
 }
 
 /* ─── Constants ─── */
-const DPR = Math.max(window.devicePixelRatio || 1, 1);
+const DPR = Math.min(Math.max(window.devicePixelRatio || 1, 1), 2);
 const GAME_WIDTH = 420;
 const GAME_HEIGHT = 760;
 const GRAVITY = 0.38;
@@ -889,7 +889,7 @@ function updateBallPhysics() {
   }
 
   /* ── Trail recording ── */
-  const MAX_TRAIL = 16;
+  const MAX_TRAIL = 10;
   ball.trail.push({ x: ball.x, y: ball.y, scale: getDynamicScale(), angle: ball.angle });
   if (ball.trail.length > MAX_TRAIL) ball.trail.shift();
 

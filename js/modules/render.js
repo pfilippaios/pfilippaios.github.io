@@ -100,9 +100,8 @@
           const pt = ball.trail[i];
           const r = BALL_DISPLAY_RADIUS * pt.scale * (0.3 + t * 0.55);
           const alpha = t * 0.32;
-          const trailImage = getBallRenderImage(pt.angle, true);
           ctx.globalAlpha = alpha;
-          ctx.drawImage(trailImage, pt.x - r, pt.y - r, r * 2, r * 2);
+          ctx.drawImage(ballImage, pt.x - r, pt.y - r, r * 2, r * 2);
         }
         ctx.globalAlpha = 1;
       }
