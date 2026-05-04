@@ -51,7 +51,10 @@
         p.vy += 0.05; // Light gravity
         p.life -= p.decay;
         if (p.type === "star") p.angle += p.spin;
-        if (p.life <= 0) particles.splice(i, 1);
+        if (p.life <= 0) {
+          particles[i] = particles[particles.length - 1];
+          particles.pop();
+        }
       }
     }
 

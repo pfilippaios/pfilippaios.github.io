@@ -27,8 +27,29 @@
       DEPTH_ANCHOR_Y,
     } = constants;
 
+    let bgCache = null;
+
     function drawBackground() {
-      ctx.drawImage(bgImage, 0, 0, GAME_WIDTH, GAME_HEIGHT);
+      if (!bgCache && bgImage.complete && bgImage.naturalWidth) {
+        try {
+          const cw = ctx.canvas.width;
+          const ch = ctx.canvas.height;
+          bgCache = typeof OffscreenCanvas !== "undefined"
+            ? new OffscreenCanvas(cw, ch)
+            : Object.assign(document.createElement("canvas"), { width: cw, height: ch });
+          bgCache.getContext("2d").drawImage(bgImage, 0, 0, cw, ch);
+        } catch (_) {
+          bgCache = null;
+        }
+      }
+      if (bgCache) {
+        ctx.save();
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.drawImage(bgCache, 0, 0);
+        ctx.restore();
+      } else {
+        ctx.drawImage(bgImage, 0, 0, GAME_WIDTH, GAME_HEIGHT);
+      }
     }
 
     function depthScale(z) {
@@ -198,6 +219,34 @@
       ctx.setLineDash([]);
     }
 
+    let scoreTextCache = null;
+    let scoreTextCacheKey = "";
+    const SCORE_TEXT_W = 220;
+    const SCORE_TEXT_H = 52;
+
+    function ensureScoreTextCache(text) {
+      if (scoreTextCacheKey === text && scoreTextCache) return;
+      try {
+        scoreTextCache = typeof OffscreenCanvas !== "undefined"
+          ? new OffscreenCanvas(SCORE_TEXT_W, SCORE_TEXT_H)
+          : Object.assign(document.createElement("canvas"), { width: SCORE_TEXT_W, height: SCORE_TEXT_H });
+        const sctx = scoreTextCache.getContext("2d");
+        sctx.clearRect(0, 0, SCORE_TEXT_W, SCORE_TEXT_H);
+        sctx.textAlign = "center";
+        sctx.textBaseline = "middle";
+        sctx.font = "700 32px 'Chakra Petch', 'Bergen Sans', sans-serif";
+        sctx.lineWidth = 6;
+        sctx.strokeStyle = "rgba(0, 0, 0, 0.7)";
+        sctx.strokeText(text, SCORE_TEXT_W / 2, SCORE_TEXT_H / 2);
+        sctx.fillStyle = "rgba(94, 200, 212, 1)";
+        sctx.fillText(text, SCORE_TEXT_W / 2, SCORE_TEXT_H / 2);
+        scoreTextCacheKey = text;
+      } catch (_) {
+        scoreTextCache = null;
+        scoreTextCacheKey = "";
+      }
+    }
+
     function drawScoreMessage() {
       if (!state.scoreMessage) return;
       const elapsed = performance.now() - state.scoreMessage.startTime;
@@ -212,6 +261,17 @@
       const scale = 0.8 + 0.4 * Math.min(1, t * 4);
       const x = hoop.centerX;
       const y = hoop.rimY - 70 - lift;
+
+      ensureScoreTextCache(state.scoreMessage.text);
+      if (scoreTextCache) {
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.translate(x, y);
+        ctx.scale(scale, scale);
+        ctx.drawImage(scoreTextCache, -SCORE_TEXT_W / 2, -SCORE_TEXT_H / 2);
+        ctx.restore();
+        return;
+      }
 
       ctx.save();
       ctx.translate(x, y);

@@ -129,7 +129,7 @@
 
     function cancelSegmentFrame(loopState) {
       if (!loopState || !loopState.segmentFrame) return;
-      global.cancelAnimationFrame(loopState.segmentFrame);
+      global.clearInterval(loopState.segmentFrame);
       loopState.segmentFrame = 0;
     }
 
@@ -165,7 +165,7 @@
 
       function step() {
         if (loopState.audio.paused) {
-          loopState.segmentFrame = 0;
+          cancelSegmentFrame(loopState);
           return;
         }
 
@@ -193,11 +193,9 @@
             fadeLoopIn(loopState);
           }
         }
-
-        loopState.segmentFrame = global.requestAnimationFrame(step);
       }
 
-      loopState.segmentFrame = global.requestAnimationFrame(step);
+      loopState.segmentFrame = global.setInterval(step, 200);
     }
 
     function resetAudio(audio) {

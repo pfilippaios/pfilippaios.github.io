@@ -209,7 +209,8 @@ if (!IS_LOCAL_ENV && debugPanel) {
 }
 
 /* ─── Constants ─── */
-const DPR = Math.min(Math.max(window.devicePixelRatio || 1, 1), 2);
+const _isTouchDevice = ("ontouchstart" in window || navigator.maxTouchPoints > 0);
+const DPR = Math.min(Math.max(window.devicePixelRatio || 1, 1), _isTouchDevice ? 1.5 : 2);
 const GAME_WIDTH = 420;
 const GAME_HEIGHT = 760;
 const GRAVITY = 0.38;
@@ -1571,7 +1572,11 @@ if (dbgHideAll) {
 
 /* ─── Boot ─── */
 setupCanvas();
-window.addEventListener("resize", setupCanvas);
+let _resizeTimerId = 0;
+window.addEventListener("resize", () => {
+  clearTimeout(_resizeTimerId);
+  _resizeTimerId = setTimeout(setupCanvas, 150);
+});
 
 /* ─── Asset protection ─── */
 document.addEventListener("contextmenu", (event) => event.preventDefault());
