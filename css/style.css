@@ -1188,6 +1188,10 @@ canvas {
   flex-direction: column;
 }
 
+#debugPanel[hidden] {
+  display: none !important;
+}
+
 #debugPanel.collapsed #debugState,
 #debugPanel.collapsed #debugLog,
 #debugPanel.collapsed #debugFileLog,

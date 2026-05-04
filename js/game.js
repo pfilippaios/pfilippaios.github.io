@@ -3,6 +3,8 @@ const ENABLE_BIRD = false;
 const ENABLE_CROWD = false;
 const TEST_MODE = false;
 const SLOW_MO = 1.0;
+const IS_LOCAL_ENV = ["localhost", "127.0.0.1", "::1", ""].includes(window.location.hostname);
+const DEBUG_ALLOWED = IS_LOCAL_ENV;
 const DEBUG_ENABLED = false;
 
 const canvas = document.getElementById("gameCanvas");
@@ -68,8 +70,6 @@ if (
   !createUiSystem ||
   !createSessionSystem ||
   !loadInitialPlayCount ||
-  !createDebugSystem ||
-  !createDebugRimSystem ||
   !createRoundFlow ||
   !createScoreFlowSystem ||
   !createControlsSystem ||
@@ -77,6 +77,34 @@ if (
   !createRenderSystem
 ) {
   throw new Error("Hoop Rush modules failed to load. Check js/modules script order.");
+}
+
+function createNoopDebugSystem() {
+  const noop = () => {};
+  return {
+    log: noop,
+    clear: noop,
+    download: noop,
+    copy: () => Promise.resolve(),
+    recordMarker: noop,
+    pruneMarkers: noop,
+    renderLog: noop,
+    renderFileLog: noop,
+    renderState: noop,
+    isEnabled: () => false,
+    setEnabled: noop,
+    toggleEnabled: noop,
+    entries: [],
+    fileLog: [],
+    markers: [],
+    markerTtlMs: 0,
+  };
+}
+
+function createNoopDebugRimSystem() {
+  return {
+    drawDebugRim: () => {},
+  };
 }
 
 let particlesSystem = null;
@@ -155,6 +183,10 @@ const debugClearBtn = document.getElementById("debugClear");
 const debugCopyBtn = document.getElementById("debugCopy");
 const debugDownloadBtn = document.getElementById("debugDownload");
 const debugToggleBtn = document.getElementById("debugToggle");
+
+if (!IS_LOCAL_ENV && debugPanel) {
+  debugPanel.remove();
+}
 
 /* ─── Constants ─── */
 const DPR = Math.max(window.devicePixelRatio || 1, 1);
@@ -312,7 +344,7 @@ const ball = {
   backboardHitSoundArmed: true,
 };
 
-debug = createDebugSystem({
+debug = DEBUG_ALLOWED && createDebugSystem ? createDebugSystem({
   enabled: DEBUG_ENABLED,
   nodes: {
     debugPanel,
@@ -330,7 +362,7 @@ debug = createDebugSystem({
     MAX_ATTEMPTS,
     WIN_THRESHOLD,
   },
-});
+}) : createNoopDebugSystem();
 
 audioSystem = createAudioSystem({
   bgMusicSrc: "./assets/audio/bg_music.mp3",
@@ -777,7 +809,7 @@ function registerScore() {
 /* Fixed collision radius — decoupled from depth scaling so the ball's
    hitbox stays consistent regardless of arc height (Phase 4a). */
 const BALL_COLLISION_RADIUS = BALL_DISPLAY_RADIUS * 0.7;
-debugRimSystem = createDebugRimSystem({
+debugRimSystem = DEBUG_ALLOWED && createDebugRimSystem ? createDebugRimSystem({
   ctx,
   state,
   ball,
@@ -791,7 +823,7 @@ debugRimSystem = createDebugRimSystem({
   },
   debug,
   hexToRgba,
-});
+}) : createNoopDebugRimSystem();
 
 function updateBallPhysics() {
   if (!ball.active) return;
@@ -1427,6 +1459,11 @@ helpButton.addEventListener("click", () => {
   helpOverlay.classList.add("visible");
 });
 helpCloseButton.addEventListener("click", () => {
+  if (!state.started) {
+    beginGame();
+    helpOverlay.classList.remove("visible");
+    return;
+  }
   helpOverlay.classList.remove("visible");
 });
 if (assistToggleButton) {
