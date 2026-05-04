@@ -4,7 +4,7 @@ const ENABLE_CROWD = false;
 const TEST_MODE = false;
 const SLOW_MO = 1.0;
 const IS_LOCAL_ENV = ["localhost", "127.0.0.1", "::1", ""].includes(window.location.hostname);
-const DEBUG_ENABLED = false;
+const DEBUG_ENABLED = true;
 const DEBUG_ALLOWED = DEBUG_ENABLED;
 
 const canvas = document.getElementById("gameCanvas");
@@ -974,6 +974,23 @@ function updateBallPhysics() {
   const prevBallBottomAtRimCheck = ball.prevY + effR;
   if (ballBottomAtRimCheck <= rimY) {
     ball.clearedRimPlane = true;
+  }
+
+  /* ── Pre-entry z-attraction ──
+     Pull z toward HOOP_Z when ball is descending into the mouth zone but
+     drifting depth-wise (e.g. after a rim deflection). Without this, marginal
+     shots that visually swish can fail the atHoopDepth gate and never register. */
+  if (
+    ball.hoopState === "outside" &&
+    ball.vy > 0 &&
+    ball.x > captureLeftX &&
+    ball.x < captureRightX &&
+    ball.y >= rimY - effR * 1.5 &&
+    ball.y <= rimY + hoop.netHeight * 0.4 &&
+    Math.abs(ball.zDepth - HOOP_Z) < NET_Z_HALF * 1.5
+  ) {
+    ball.zDepth += (HOOP_Z - ball.zDepth) * 0.25;
+    ball.vz *= 0.6;
   }
 
   /* ── Z-depth gate for hoop-plane interactions ── */
