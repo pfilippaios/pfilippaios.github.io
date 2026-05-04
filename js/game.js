@@ -15,6 +15,8 @@ const madeValueNode = document.getElementById("madeValue");
 const timerValueNode = document.getElementById("timerValue");
 const playCountValueNode = document.getElementById("playCountValue");
 const startOverlay = document.getElementById("startOverlay");
+const introCard = startOverlay ? startOverlay.querySelector(".intro-card") : null;
+const introScrollCue = document.getElementById("introScrollCue");
 const messageOverlay = document.getElementById("messageOverlay");
 const messageEyebrow = document.getElementById("messageEyebrow");
 const messageTitle = document.getElementById("messageTitle");
@@ -107,6 +109,13 @@ function createNoopDebugRimSystem() {
   };
 }
 
+function updateIntroScrollCue() {
+  if (!introCard || !introScrollCue) return;
+  const canScroll = introCard.scrollHeight > introCard.clientHeight + 12;
+  const nearTop = introCard.scrollTop < 12;
+  introScrollCue.classList.toggle("hidden", !canScroll || !nearTop);
+}
+
 let particlesSystem = null;
 let birdSystem = null;
 let crowdSystem = null;
@@ -122,6 +131,17 @@ let debugRimSystem = null;
 let debug = null;
 let crowdSequenceSourceImages = null;
 let crowdSequenceBuildScheduled = false;
+
+if (introCard && introScrollCue) {
+  introCard.addEventListener("scroll", updateIntroScrollCue, { passive: true });
+  window.addEventListener("resize", updateIntroScrollCue);
+  introCard.querySelectorAll("img").forEach((img) => {
+    if (!img.complete) {
+      img.addEventListener("load", updateIntroScrollCue, { once: true });
+    }
+  });
+  window.requestAnimationFrame(updateIntroScrollCue);
+}
 
 function scheduleCrowdSequenceBuild() {
   if (!crowdSystem || !crowdSequenceSourceImages || crowdSequenceBuildScheduled) return;

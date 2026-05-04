@@ -131,8 +131,9 @@
 
       if (ball.y < GAME_HEIGHT - 80) {
         const scale = depthScale(ball.z);
-        const shadowY = (ball.z >= 200) ? ball.y + 10 : GAME_HEIGHT - 50;
-        const shadowScale = Math.max(0.3, 1 - (shadowY - ball.y) / 600) * scale;
+        const shadowOffset = BALL_DISPLAY_RADIUS * (0.55 + clamp(ball.z / 110, 0, 1) * 0.75);
+        const shadowY = clamp(ball.y + shadowOffset, hoop.rimY + 34, GAME_HEIGHT - 50);
+        const shadowScale = Math.max(0.28, 1 - shadowOffset / 130) * scale;
         ctx.fillStyle = `rgba(0, 0, 0, ${0.18 * shadowScale})`;
         ctx.beginPath();
         ctx.ellipse(
