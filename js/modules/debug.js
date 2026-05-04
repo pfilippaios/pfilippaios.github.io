@@ -27,6 +27,7 @@
       markers: [],
       latestHit: null,
       max: 120,
+      fileMax: 900,
       markerMax: 28,
       markerTtlMs: 2800,
       isEnabled() {
@@ -53,8 +54,13 @@
       },
       log(msg, level = "info") {
         const t = (performance.now() / 1000).toFixed(2);
-        this.entries.push({ t, msg, level });
         this.fileLog.push(`[${t}] [${level.toUpperCase()}] ${msg}`);
+        if (this.fileLog.length > this.fileMax) {
+          this.fileLog.splice(0, this.fileLog.length - this.fileMax);
+        }
+        if (!active) return;
+
+        this.entries.push({ t, msg, level });
         if (this.entries.length > this.max) this.entries.shift();
         this.renderLog();
         this.renderFileLog();
@@ -86,6 +92,7 @@
         global.__hoopRushDebugEntries = [...this.fileLog];
       },
       download() {
+        this.renderFileLog();
         const blob = new Blob([this.fileLog.join("\n")], { type: "text/plain" });
         const anchor = document.createElement("a");
         anchor.href = URL.createObjectURL(blob);
@@ -94,6 +101,7 @@
         URL.revokeObjectURL(anchor.href);
       },
       async copy() {
+        this.renderFileLog();
         const text = this.fileLog.join("\n");
         if (!text) return;
         if (navigator.clipboard?.writeText) {
@@ -130,8 +138,8 @@
 attempts=${state.attemptsUsed}/${constants.MAX_ATTEMPTS} made=${state.shotsMade}/${constants.WIN_THRESHOLD} score=${state.score}
 dragging=${state.dragging} awaitMsg=${state.awaitingMessage}
 ball.active=${ball.active} scored=${ball.scored} hoop=${ball.hoopState}
-ball.x=${ball.x.toFixed(1)} y=${ball.y.toFixed(1)} z=${ball.z.toFixed(1)}
-ball.vx=${ball.vx.toFixed(2)} vy=${ball.vy.toFixed(2)} flight=${ball.flightTime || 0} frontGrace=${ball.frontRimGraceUsed}
+ball.x=${ball.x.toFixed(1)} y=${ball.y.toFixed(1)} yDepth=${ball.z.toFixed(1)} zDepth=${(ball.zDepth || 0).toFixed(1)}
+ball.vx=${ball.vx.toFixed(2)} vy=${ball.vy.toFixed(2)} vz=${(ball.vz || 0).toFixed(2)} flight=${ball.flightTime || 0}
 logLines=${this.fileLog.length} markers=${this.markers.length} lastHit=${lastHit}`;
       },
     };

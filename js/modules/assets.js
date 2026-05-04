@@ -14,7 +14,6 @@
     let deferredAssetsStarted = false;
     const crowdSequenceImages = {};
     const crowdSequenceKeys = ["left", "center", "right"];
-    let crowdSequencesResolved = 0;
 
     const ballSpinFrameCount = 8;
     const birdFrameCount = 8;
@@ -47,7 +46,6 @@
 
       bootAssetsReady = true;
       onAllReady();
-      scheduleBackgroundWork(startDeferredAssetLoads);
     }
 
     function prepareImageElement(image, priority = "auto") {
@@ -60,6 +58,13 @@
       return image;
     }
 
+    function decodeImageWhenIdle(image) {
+      if (!image || typeof image.decode !== "function") return;
+      scheduleBackgroundWork(() => {
+        image.decode().catch(() => {});
+      });
+    }
+
     function loadImageAsset({
       primarySrc,
       onLoad = onCriticalAssetLoad,
@@ -69,7 +74,12 @@
     }) {
       const image = prepareImageElement(new Image(), priority);
 
-      image.onload = () => onLoad(image);
+      const handleLoad = () => {
+        onLoad(image);
+        decodeImageWhenIdle(image);
+      };
+
+      image.onload = handleLoad;
       image.onerror = () => {
         console.warn(`Failed to load image asset: ${label}`);
         onFinalError(image);
@@ -96,7 +106,7 @@
     });
 
     const frontHoopImage = loadImageAsset({
-      primarySrc: "./assets/game/hoop/front-hoop.png",
+      primarySrc: "./assets/game/hoop/front-hoop.webp",
       priority: "high",
       onLoad: () => {
         frontHoopReady = true;
@@ -104,66 +114,64 @@
       },
     });
 
-    function settleCrowdSequences() {
-      crowdSequencesResolved++;
-
-      if (crowdSequencesResolved !== crowdSequenceKeys.length) return;
-
-      if (Object.keys(crowdSequenceImages).length) {
-        onCrowdSequencesReady(crowdSequenceImages);
-        return;
-      }
-
-      onCrowdSequencesError();
+    function loadAsync(src, label) {
+      return new Promise((resolve) => {
+        loadImageAsset({
+          primarySrc: src,
+          onLoad: (img) => resolve(img),
+          onFinalError: (img) => resolve(img),
+          label: label,
+          priority: "low",
+        });
+      });
     }
 
-    function startDeferredAssetLoads() {
+    async function startDeferredAssetLoads() {
       if (deferredAssetsStarted) return;
       deferredAssetsStarted = true;
 
-      for (let index = 0; index < ballSpinFrameCount; index++) {
-        ballSpinFrames[index] = loadImageAsset({
-          primarySrc: `./assets/game/ball/ball-spin-${index + 1}.webp`,
-          onLoad: () => {},
-          onFinalError: () => {},
-          label: `ball-spin-${index + 1}`,
-        });
-      }
+      const ballFrameLoads = Array.from({ length: ballSpinFrameCount }, (_, index) =>
+        loadAsync(`./assets/game/ball/ball-spin-${index + 1}.webp`, `ball-spin-${index + 1}`)
+          .then((img) => {
+            ballSpinFrames[index] = img;
+          })
+      );
 
-      netFrameAssets.slice(1).forEach(({ key, src }, index) => {
-        netFrames[index + 1] = loadImageAsset({
-          primarySrc: src,
-          onLoad: () => {},
-          onFinalError: () => {},
-          label: `net-frame-${key}`,
-        });
-      });
+      const netFrameLoads = netFrameAssets.slice(1).map(({ key, src }, offset) =>
+        loadAsync(src, `net-frame-${key}`).then((img) => {
+          netFrames[offset + 1] = img;
+        })
+      );
+
+      await Promise.allSettled([...ballFrameLoads, ...netFrameLoads]);
 
       if (enableBird) {
-        for (let index = 0; index < birdFrameCount; index++) {
-          birdFrames[index] = loadImageAsset({
-            primarySrc: `./assets/game/bird/bird-smooth-${index + 1}.webp`,
-            onLoad: () => {},
-            onFinalError: () => {},
-            label: `bird-frame-${index + 1}`,
-          });
-        }
+        await Promise.allSettled(
+          Array.from({ length: birdFrameCount }, (_, index) =>
+            loadAsync(`./assets/game/bird/bird-smooth-${index + 1}.webp`, `bird-frame-${index + 1}`)
+              .then((img) => {
+                birdFrames[index] = img;
+              })
+          )
+        );
       }
 
       if (enableCrowd) {
-        crowdSequenceKeys.forEach((key) => {
-          loadImageAsset({
-            primarySrc: `./assets/game/crowd/crowd_${key}.webp`,
-            onLoad: (image) => {
-              crowdSequenceImages[key] = image;
-              settleCrowdSequences();
-            },
-            onFinalError: () => {
-              settleCrowdSequences();
-            },
-            label: `crowd-${key}`,
-          });
-        });
+        await Promise.allSettled(
+          crowdSequenceKeys.map((key) =>
+            loadAsync(`./assets/game/crowd/crowd_${key}.webp`, `crowd-${key}`).then((img) => {
+              if (img && img.complete && img.naturalWidth) {
+                crowdSequenceImages[key] = img;
+              }
+            })
+          )
+        );
+
+        if (Object.keys(crowdSequenceImages).length) {
+          onCrowdSequencesReady(crowdSequenceImages);
+        } else {
+          onCrowdSequencesError();
+        }
       }
     }
 
@@ -175,6 +183,7 @@
       frontHoopImage,
       birdFrames,
       isFrontHoopReady: () => frontHoopReady,
+      startDeferredAssetLoads,
     };
   }
 

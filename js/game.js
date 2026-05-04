@@ -4,8 +4,8 @@ const ENABLE_CROWD = false;
 const TEST_MODE = false;
 const SLOW_MO = 1.0;
 const IS_LOCAL_ENV = ["localhost", "127.0.0.1", "::1", ""].includes(window.location.hostname);
-const DEBUG_ALLOWED = IS_LOCAL_ENV;
 const DEBUG_ENABLED = false;
+const DEBUG_ALLOWED = DEBUG_ENABLED;
 
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
@@ -192,6 +192,7 @@ const {
   netFrames,
   frontHoopImage,
   birdFrames,
+  startDeferredAssetLoads,
 } = assetSystem;
 
 /* ─── Debug panel ─── */
@@ -204,7 +205,7 @@ const debugCopyBtn = document.getElementById("debugCopy");
 const debugDownloadBtn = document.getElementById("debugDownload");
 const debugToggleBtn = document.getElementById("debugToggle");
 
-if (!IS_LOCAL_ENV && debugPanel) {
+if (!DEBUG_ALLOWED && debugPanel) {
   debugPanel.remove();
 }
 
@@ -281,6 +282,13 @@ const BALL_DISPLAY_RADIUS = 36;
 const BALL_REST_Y = GAME_HEIGHT - 270; // 490 — raised higher for mobile viewport
 const DEPTH_ANCHOR_Y = GAME_HEIGHT - 220; // 540 — original depth reference for z/scale calc
 const BALL_REST_SCALE = 1.25;          // Visual scale boost at rest/drag (pre-launch only)
+const HOOP_Z = 75;                     // Depth coordinate where the rim sits
+const Z_TO_PX = 3.93;                  // Converts Z units into screen-space collision units
+const Z_DRAG = 0.997;
+const RIM_Z_HALF = 10;                 // Rim collision tolerance (±10 around HOOP_Z)
+const NET_Z_HALF = 14;
+const HOOP_Z_LOCK_STRENGTH = 0.18;     // Pull valid entries back to rim depth instead of ejecting them
+const HOOP_Z_VELOCITY_DAMPING = 0.72;
 const BIRD_ASPECT_RATIO = 258 / 230;
 const BIRD_FRAME_SEQUENCE = [0, 1, 2, 3, 4, 5, 6, 7];
 const BIRD_FLIGHT_BAND = {
@@ -328,14 +336,18 @@ const ball = {
   prevY: BALL_REST_Y,
   vx: 0,
   vy: 0,
+  vz: 0,
   spin: 0,
   angle: 0,
   active: false,
   trail: [],
   scored: false,
   hoopState: "outside",
-  frontRimGraceUsed: false,
+  validEntry: false,
+  entryFrame: null,
+  clearedRimPlane: false,
   z: 0,
+  zDepth: 0,
   opacity: 1.0,
   settledTime: null,
   backboardHitSoundArmed: true,
@@ -533,11 +545,15 @@ controlsSystem = createControlsSystem({
   canvas,
   state,
   ball,
+  hoop,
   constants: {
     GAME_WIDTH,
     GAME_HEIGHT,
     BALL_DISPLAY_RADIUS,
     GRAVITY,
+    HOOP_Z,
+    Z_TO_PX,
+    Z_DRAG,
   },
   clamp,
   debug,
@@ -557,6 +573,7 @@ netSystem = createNetSystem({
   frontHoopImage,
   isFrontHoopReady: assetSystem.isFrontHoopReady,
   clamp,
+  constants: { HOOP_Z, NET_Z_HALF },
 });
 renderSystem = createRenderSystem({
   ctx,
@@ -575,6 +592,9 @@ renderSystem = createRenderSystem({
     BALL_DISPLAY_RADIUS,
     BALL_REST_SCALE,
     DEPTH_ANCHOR_Y,
+    HOOP_Z,
+    NET_Z_HALF,
+    Z_TO_PX,
   },
   clamp,
   getLaunchVector,
@@ -623,6 +643,22 @@ function openAuxPage(pageKey) {
   uiSystem.openAuxPage(pageKey);
 }
 
+function loadDeferredImages(root) {
+  if (!root) return;
+  root.querySelectorAll("img[data-src]").forEach((image) => {
+    image.src = image.dataset.src;
+    delete image.dataset.src;
+  });
+}
+
+function scheduleDeferredImageLoad(root) {
+  if (typeof window.requestIdleCallback === "function") {
+    window.requestIdleCallback(() => loadDeferredImages(root), { timeout: 1200 });
+    return;
+  }
+  window.setTimeout(() => loadDeferredImages(root), 250);
+}
+
 /* ─── Ball / Game reset ─── */
 function resetBall() {
   if (!sessionSystem) return;
@@ -639,6 +675,7 @@ function beginGame() {
   if (!sessionSystem) return;
   if (audioSystem) audioSystem.startAmbient();
   sessionSystem.beginGame();
+  if (startDeferredAssetLoads) startDeferredAssetLoads();
 }
 
 /* ─── Pointer helpers ─── */
@@ -747,6 +784,7 @@ function updateAssistButton() {
 
 function toggleAssist() {
   if (!controlsSystem) return;
+  loadDeferredImages(assistInfoOverlay);
   controlsSystem.toggleAssist();
 }
 
@@ -817,6 +855,9 @@ debugRimSystem = DEBUG_ALLOWED && createDebugRimSystem ? createDebugRimSystem({
     BALL_DISPLAY_RADIUS,
     GAME_WIDTH,
     GAME_HEIGHT,
+    HOOP_Z,
+    Z_TO_PX,
+    NET_Z_HALF,
   },
   debug,
   hexToRgba,
@@ -829,7 +870,7 @@ function updateBallPhysics() {
 
   // Log ball state every 10 frames
   if (ball.flightTime % 10 === 1) {
-    debug.log(`frame=${ball.flightTime} x=${ball.x.toFixed(1)} y=${ball.y.toFixed(1)} vx=${ball.vx.toFixed(2)} vy=${ball.vy.toFixed(2)} hoop=${ball.hoopState} spin=${ball.spin.toFixed(3)}`, "info");
+    debug.log(`frame=${ball.flightTime} x=${ball.x.toFixed(1)} y=${ball.y.toFixed(1)} z=${ball.zDepth.toFixed(1)} vx=${ball.vx.toFixed(2)} vy=${ball.vy.toFixed(2)} vz=${ball.vz.toFixed(2)} hoop=${ball.hoopState} spin=${ball.spin.toFixed(3)}`, "info");
   }
 
   if (ball.flightTime > 240) {
@@ -865,19 +906,35 @@ function updateBallPhysics() {
   /* ── Assist mode steering ── */
   if (state.assistMode && !ball.scored) {
     const dxToHoop = hoop.centerX - ball.x;
-    const dyToHoop = hoop.rimY - ball.y;
-    const distanceToHoop = Math.hypot(dxToHoop, dyToHoop);
-    if (distanceToHoop < 600 && ball.y < hoop.rimY + 180) {
-      if (ball.y < hoop.rimY || ball.vy > 0) {
-        ball.vx += dxToHoop * 0.004;
+    const dzToHoop = HOOP_Z - ball.zDepth;
+    const dyToRim = hoop.rimY - ball.y;
+    const distanceToHoop3D = Math.hypot(dxToHoop, dyToRim, dzToHoop * Z_TO_PX);
+    if (distanceToHoop3D < 650 && ball.y < hoop.rimY + 190) {
+      const depthProgress = clamp(ball.zDepth / HOOP_Z, 0, 1);
+      const magnetStrength = 0.55 + depthProgress * 0.65;
+      const targetY =
+        ball.clearedRimPlane || ball.vy > 0
+          ? hoop.rimY + hoop.netHeight * 0.18
+          : hoop.rimY - BALL_COLLISION_RADIUS * 1.12;
+      const dyToTarget = targetY - ball.y;
+      const zAccelLimit =
+        ball.clearedRimPlane || ball.vy > -4 || ball.y < hoop.rimY + BALL_COLLISION_RADIUS
+          ? 0.24
+          : 0.08;
+      const yAccelLimit = ball.y < hoop.rimY - BALL_COLLISION_RADIUS * 2.4 ? 0.34 : 0.22;
+
+      ball.vx += clamp(dxToHoop * 0.0065 * magnetStrength, -0.42, 0.42);
+      ball.vz += clamp(dzToHoop * 0.0038 * magnetStrength, -zAccelLimit, zAccelLimit);
+      if (ball.y > hoop.rimY - BALL_COLLISION_RADIUS * 2.2 || ball.vy > -4 || ball.clearedRimPlane) {
+        ball.vy += clamp(dyToTarget * 0.0023 * magnetStrength, -0.18, yAccelLimit);
       }
-      const belowRim = ball.y > hoop.rimY;
-      const falling = ball.vy > 0;
-      if (belowRim || falling) {
-        ball.vy += dyToHoop * 0.0015;
+      if (ball.y < hoop.rimY - BALL_COLLISION_RADIUS && ball.zDepth > HOOP_Z + RIM_Z_HALF * 0.55) {
+        ball.vz = Math.min(ball.vz, 0.18);
+        ball.zDepth += (HOOP_Z - ball.zDepth) * 0.035;
       }
+      ball.vx *= 0.992;
+      ball.vz *= 0.992;
     }
-    ball.vx *= 0.99;
   }
 
   /* ── Velocity Verlet integration (Phase 3a) ── */
@@ -885,8 +942,13 @@ function updateBallPhysics() {
   ball.y += ball.vy * SLOW_MO + 0.5 * GRAVITY * SLOW_MO * SLOW_MO;
   ball.vy += GRAVITY * SLOW_MO;
 
+  /* Z depth: advance toward hoop with mild drag to prevent overshoot */
+  ball.vz *= Z_DRAG;
+  ball.zDepth += ball.vz * SLOW_MO;
+  if (ball.zDepth < 0) ball.zDepth = 0;
+
   if (ball.active) {
-    ball.z = clamp((DEPTH_ANCHOR_Y - ball.y) / 3.93, 0, 110);
+    ball.z = clamp((DEPTH_ANCHOR_Y - ball.y) / Z_TO_PX, 0, 110);
   }
 
   /* ── Trail recording ── */
@@ -908,10 +970,22 @@ function updateBallPhysics() {
   const capturePadding = BALL_DISPLAY_RADIUS * 0.28;
   const captureLeftX = innerLeftRimX - capturePadding;
   const captureRightX = innerRightRimX + capturePadding;
+  const ballBottomAtRimCheck = ball.y + effR;
+  const prevBallBottomAtRimCheck = ball.prevY + effR;
+  if (ballBottomAtRimCheck <= rimY) {
+    ball.clearedRimPlane = true;
+  }
 
-  /* ── Entry detection: ball descending into mouth ── */
+  /* ── Z-depth gate for hoop-plane interactions ── */
+  const atHoopDepth = Math.abs(ball.zDepth - HOOP_Z) < RIM_Z_HALF;
+  const nearHoopDepth = Math.abs(ball.zDepth - HOOP_Z) < RIM_Z_HALF * 1.45;
+  const hasClearedRimPlane = ball.clearedRimPlane || prevBallBottomAtRimCheck <= rimY;
+
+  /* ── Entry detection: ball descending into mouth (Z-gated) ── */
   const descendingIntoMouth =
     ball.vy > 0 &&
+    atHoopDepth &&
+    hasClearedRimPlane &&
     ball.y >= rimY - effR * 0.55 &&
     ball.y <= rimY + hoop.netHeight * 0.24 &&
     ball.x > captureLeftX &&
@@ -920,6 +994,8 @@ function updateBallPhysics() {
   if (ball.hoopState === "outside" && descendingIntoMouth) {
     ball.hoopState = "entering";
     ball.validEntry = true;
+    ball.entryFrame = ball.flightTime;
+    ball.clearedRimPlane = true;
     debug.recordMarker({
       x: ball.x,
       y: ball.y,
@@ -929,184 +1005,149 @@ function updateBallPhysics() {
       detail: "entering-mouth",
     });
     debug.log(
-      `entering-mouth x=${ball.x.toFixed(1)} y=${ball.y.toFixed(1)} vy=${ball.vy.toFixed(2)} capture=[${captureLeftX.toFixed(1)},${captureRightX.toFixed(1)}]`,
+      `entering-mouth x=${ball.x.toFixed(1)} y=${ball.y.toFixed(1)} z=${ball.zDepth.toFixed(1)} vy=${ball.vy.toFixed(2)} capture=[${captureLeftX.toFixed(1)},${captureRightX.toFixed(1)}]`,
       "evt"
     );
   }
 
-  /* Committed drop zone — once the ball has validly entered and is falling
-     through, rim collisions are suppressed so it can't bounce out (Phase 1b). */
+  /* ── True 3D Torus Collision ──
+     The rim is treated as a mathematically perfect 3D ring at y = hoop.rimY.
+     This replaces the 24-point 2D ellipse approximation. */
+  const hoopZPx = HOOP_Z * Z_TO_PX;
+  let ballZPx = ball.zDepth * Z_TO_PX;
+  const dXZ = Math.hypot(ball.x - hoop.centerX, ballZPx - hoopZPx);
+  const dy = ball.y - hoop.rimY;
+  const dist3D = Math.hypot(dXZ - hoop.rimRadius, dy);
+  const framesSinceEntryForCollision = ball.entryFrame ? ball.flightTime - ball.entryFrame : 999;
+  const entryGraceForCollision = ball.hoopState === "entering" && framesSinceEntryForCollision <= 12;
+  const ballBottomForHoop = ball.y + effR;
   const committedDrop =
     ball.validEntry &&
-    ball.hoopState === "entering" &&
-    ball.vy > 0 &&
-    ball.y >= rimY - 2 &&
+    (ball.vy > 0 || entryGraceForCollision) &&
+    ballBottomForHoop >= rimY - 2 &&
     ball.y <= rimY + hoop.netHeight * 0.65 &&
     ball.x > captureLeftX &&
-    ball.x < captureRightX;
+    ball.x < captureRightX &&
+    nearHoopDepth;
 
-  /* ── Rim collision ── */
-  function collideRimPoint(px, py) {
-    const dx = ball.x - px;
-    const dy = ball.y - py;
-    const dist = Math.hypot(dx, dy);
-    if (dist === 0 || dist >= effR) return false;
+  let rimHit = false;
 
-    /* Skip collision for committed drops (Phase 1b) */
-    if (committedDrop) return false;
-
-    const nx = dx / dist;
-    const ny = dy / dist;
-    const overlap = effR - dist;
-
-    /* Manual mode rim suppression — two cases:
-       1. Ball center ABOVE rim plane (any direction): prevents stalling
-          on upper rim points after backboard bounce.
-       2. Ball RISING with center within one collision radius BELOW rim:
-          the ball's hitbox extends ~25px above its center, so at y=259
-          it still clips rim points at y=236. Suppress these so the ball
-          arcs cleanly over the front rim.
-       Once the ball is descending AND its center is at/below rimY,
-       normal collisions apply (rim rattles, bouncing, deflects). */
-    if (!state.assistMode && (ball.y < hoop.rimY || (ball.vy < 0 && ball.y < hoop.rimY + effR))) {
-      return false;
+  if (!committedDrop && dist3D < effR && dist3D > 0) {
+    rimHit = true;
+    let closestX, closestZ;
+    if (dXZ === 0) {
+      closestX = hoop.centerX + hoop.rimRadius;
+      closestZ = hoopZPx;
+    } else {
+      closestX = hoop.centerX + ((ball.x - hoop.centerX) / dXZ) * hoop.rimRadius;
+      closestZ = hoopZPx + ((ballZPx - hoopZPx) / dXZ) * hoop.rimRadius;
     }
+    const closestY = hoop.rimY;
+
+    const nx = (ball.x - closestX) / dist3D;
+    const ny = (ball.y - closestY) / dist3D;
+    const nz = (ballZPx - closestZ) / dist3D;
+    const overlap = effR - dist3D;
 
     if (state.assistMode) {
-      if (ball.vy < 0 && ball.y < hoop.rimY) return false;
-      if (ball.vy < 0 && ball.y > hoop.rimY - 15) {
+      if (ball.vy < 0 && ball.y < hoop.rimY) {
+        // Suppress collisions when rising cleanly above the rim plane.
+      } else if (ball.vy < 0 && ball.y >= hoop.rimY - 15) {
+        // Nudge over the rim when rising near it, without changing entry state.
         ball.vy = Math.min(ball.vy, -0.2);
-        ball.vx += (hoop.centerX - ball.x) * 0.08;
+        ball.vx += clamp((hoop.centerX - ball.x) * 0.08, -0.45, 0.45);
+        ball.vz += clamp((HOOP_Z - ball.zDepth) * 0.08, -0.45, 0.45);
         debug.recordMarker({
-          x: px,
-          y: py,
-          type: "rim",
-          label: "R↑",
-          color: "#ffb74d",
-          detail: "assist-rising-nudge",
+          x: closestX, y: closestY, type: "rim", label: "R↑", color: "#ffb74d", detail: "assist-rising-nudge",
         });
-        debug.log(
-          `rim.assist-rising-nudge point=(${px.toFixed(1)},${py.toFixed(1)}) ball=(${ball.x.toFixed(1)},${ball.y.toFixed(1)}) overlap=${overlap.toFixed(2)}`,
-          "warn"
-        );
-        return true;
-      }
-      if (ball.y <= hoop.rimY + 6) {
-        ball.vx += (hoop.centerX - ball.x) * 0.12;
-        ball.vy = Math.max(ball.vy, 0.1);
-        const prevHoop = ball.hoopState;
-        ball.hoopState = "entering";
-        ball.validEntry = true;
+      } else if (ball.y <= hoop.rimY + 6) {
+        // Guide falling rim contact toward the mouth. Normal X/Y/Z gates still decide entry.
+        ball.vx += clamp((hoop.centerX - ball.x) * 0.12, -0.55, 0.55);
+        ball.vz += clamp((HOOP_Z - ball.zDepth) * 0.12, -0.55, 0.55);
+        ball.vy = Math.max(ball.vy, 0.25);
+        ball.x += clamp((hoop.centerX - ball.x) * 0.12, -overlap, overlap);
+        ball.zDepth += clamp((HOOP_Z - ball.zDepth) * 0.12, -overlap / Z_TO_PX, overlap / Z_TO_PX);
         debug.recordMarker({
-          x: px,
-          y: py,
-          type: "rim",
-          label: "R→E",
-          color: "#ab47bc",
-          detail: "assist-entering",
+          x: closestX, y: closestY, type: "rim", label: "R→", color: "#ab47bc", detail: "assist-falling-guide",
         });
-        if (prevHoop !== "entering") {
-          debug.log(
-            `rim.assist→entering point=(${px.toFixed(1)},${py.toFixed(1)}) ball=(${ball.x.toFixed(1)},${ball.y.toFixed(1)}) vx=${ball.vx.toFixed(2)}`,
-            "evt"
-          );
-        }
-        return true;
+      } else {
+        // Deflect off the bottom of the rim
+        ball.x += nx * overlap;
+        ball.y += ny * overlap;
+        ball.zDepth += (nz * overlap) / Z_TO_PX;
+        ball.vx *= 0.4;
+        ball.vy *= 0.3;
+        ball.vz *= 0.4;
+        debug.recordMarker({
+          x: closestX, y: closestY, type: "rim", label: "R↓", color: "#ef5350", detail: "under-rim-deflect",
+        });
       }
+    } else {
+      // Normal 3D collision response
       ball.x += nx * overlap;
       ball.y += ny * overlap;
-      ball.vx *= 0.4;
-      ball.vy *= 0.3;
+      ball.zDepth += (nz * overlap) / Z_TO_PX;
+
+      const vzPx = ball.vz * Z_TO_PX;
+      const vDotN = ball.vx * nx + ball.vy * ny + vzPx * nz;
+
       debug.recordMarker({
-        x: px,
-        y: py,
-        type: "rim",
-        label: "R↓",
-        color: "#ef5350",
-        detail: "under-rim-deflect",
+        x: closestX, y: closestY, type: "rim", label: "R", color: "#ff6b6b", detail: "rim-hit",
       });
-      debug.log(
-        `rim.under-rim-deflect point=(${px.toFixed(1)},${py.toFixed(1)}) ball=(${ball.x.toFixed(1)},${ball.y.toFixed(1)}) normal=(${nx.toFixed(2)},${ny.toFixed(2)}) overlap=${overlap.toFixed(2)}`,
-        "warn"
-      );
-      return true;
-    }
 
-    ball.x += nx * overlap;
-    ball.y += ny * overlap;
-    const vDotN = ball.vx * nx + ball.vy * ny;
-    debug.recordMarker({
-      x: px,
-      y: py,
-      type: "rim",
-      label: "R",
-      color: "#ff6b6b",
-      detail: "rim-hit",
-    });
-    debug.log(
-      `rim.hit point=(${px.toFixed(1)},${py.toFixed(1)}) ball=(${ball.x.toFixed(1)},${ball.y.toFixed(1)}) normal=(${nx.toFixed(2)},${ny.toFixed(2)}) dist=${dist.toFixed(2)} overlap=${overlap.toFixed(2)} vDotN=${vDotN.toFixed(2)} hoop=${ball.hoopState}`,
-      "warn"
-    );
-    if (vDotN < 0) {
-      const restitution = 0.22;
-      ball.vx = (ball.vx - 2 * vDotN * nx) * restitution;
-      ball.vy = (ball.vy - 2 * vDotN * ny) * restitution;
-    }
-    return true;
-  }
-
-  /* Only collide with the upper arc of the rim ellipse. The bottom half
-     represents the far side of the rim and should not block a ball
-     falling through from above — eliminates phantom deflections (Phase 2c). */
-  const p = 0.3;
-  const rimPoints = 24;
-  let rimHit = false;
-  for (let i = 0; i < rimPoints; i++) {
-    const angle = (i / rimPoints) * Math.PI * 2;
-    const py = hoop.rimY + Math.sin(angle) * hoop.rimRadius * p;
-    if (py > rimY + 2) continue; // Skip points below rim plane
-    const px = hoop.centerX + Math.cos(angle) * hoop.rimRadius;
-    if (collideRimPoint(px, py)) {
-      rimHit = true;
-      break;
+      if (vDotN < 0) {
+        const restitution = 0.22;
+        ball.vx -= (1 + restitution) * vDotN * nx;
+        ball.vy -= (1 + restitution) * vDotN * ny;
+        const newVzPx = vzPx - (1 + restitution) * vDotN * nz;
+        ball.vz = newVzPx / Z_TO_PX;
+      }
     }
   }
 
   /* Stalled-on-rim nudge */
-  const rimDx = hoop.centerX - ball.x;
-  const rimSpeed = Math.hypot(ball.vx, ball.vy);
-  const stalledOnRim =
-    ball.hoopState === "outside" &&
-    rimSpeed < 2.5 &&
-    ball.y > rimY - effR &&
-    ball.y < rimY + effR * 1.3 &&
-    Math.abs(ball.x - hoop.centerX) < hoop.rimRadius + effR * 0.8;
-
-  if (stalledOnRim) {
-    const centeredOverMouth = Math.abs(ball.x - hoop.centerX) < hoop.rimRadius * 0.65;
-    if (centeredOverMouth) {
-      ball.vx += rimDx * 0.005;
+  const rimSpeed = Math.hypot(ball.vx, ball.vy, ball.vz * Z_TO_PX);
+  if (ball.hoopState === "outside" && rimSpeed < 2.5 && dist3D < effR * 1.5 && ball.y < hoop.rimY + effR * 1.3) {
+    if (dXZ < hoop.rimRadius * 0.65) {
+      ball.vx += (hoop.centerX - ball.x) * 0.005;
+      ball.vz += (HOOP_Z - ball.zDepth) * 0.005;
       ball.vy = Math.max(ball.vy, 0.1);
     } else {
       ball.vx += ball.x < hoop.centerX ? -0.1 : 0.1;
+      ball.vz += ball.zDepth < HOOP_Z ? -0.1 : 0.1;
       ball.vy = Math.max(ball.vy, 0.1);
     }
   }
+  if (ball.zDepth < 0) ball.zDepth = 0;
+  ballZPx = ball.zDepth * Z_TO_PX;
 
-  /* ── Backboard ── */
+  /* ── Backboard (3D Plane) ── */
+  const backboardZPx = hoopZPx + hoop.rimRadius + 12;
+  const atBackboardDepth = ballZPx + effR >= backboardZPx && ballZPx - effR <= backboardZPx + 20;
   const backboardLeft = hoop.centerX - hoop.backboardWidth * 0.5;
   const backboardRight = hoop.centerX + hoop.backboardWidth * 0.5;
   const backboardTop = rimY - 110;
-  const backboardBottom = backboardTop + 18;
+  const backboardBottom = backboardTop + 55;
   const prevBallTop = ball.prevY - effR;
   const ballTop = ball.y - effR;
   const backboardSoundTriggerBottom = backboardBottom + effR + 60;
+  
   const hitsBackboardX = ball.x + effR > backboardLeft && ball.x - effR < backboardRight;
   const hitsBackboardY = ball.y + effR > backboardTop && ball.y - effR < backboardBottom;
-  const descendingIntoBackboard = hitsBackboardX && hitsBackboardY && ball.vy < 0;
+  
+  const assistedCleanLane =
+    state.assistMode &&
+    Math.abs(ball.x - hoop.centerX) < hoop.rimRadius * 0.9 &&
+    Math.abs(ball.zDepth - HOOP_Z) <= RIM_Z_HALF * 1.1 &&
+    ball.y < rimY + hoop.netHeight * 0.12;
+
+  // We allow hitting the backboard on the way down now, but mostly it happens when rising or at the apex.
+  // Assisted clean-lane shots should be guided through the mouth instead of rebounding off the board plane.
+  const hitsBackboardPlane = !assistedCleanLane && atBackboardDepth && hitsBackboardX && hitsBackboardY && ball.vz > 0;
+  
   const backboardNearContact =
+    atBackboardDepth &&
     hitsBackboardX &&
-    ball.vy < 0 &&
     prevBallTop > backboardSoundTriggerBottom &&
     ballTop <= backboardSoundTriggerBottom;
 
@@ -1116,7 +1157,7 @@ function updateBallPhysics() {
     if (audioSystem) audioSystem.playRandomHit();
   }
 
-  if (!descendingIntoBackboard) {
+  if (!hitsBackboardPlane) {
     ball.backboardHitSoundArmed = true;
   }
   if (backboardNearContact) {
@@ -1124,12 +1165,20 @@ function updateBallPhysics() {
   }
 
   let backboardHit = false;
-  if (descendingIntoBackboard) {
+  if (hitsBackboardPlane) {
     const incomingVy = ball.vy;
+    const incomingVz = ball.vz;
     const backboardHitX = clamp(ball.x, backboardLeft, backboardRight);
     const backboardHitY = clamp(ball.y - effR, backboardTop, backboardBottom);
-    ball.vy = Math.abs(ball.vy) * 0.38;
+    
+    // Reflect velocities
+    ball.vy = ball.vy < 0 ? Math.abs(ball.vy) * 0.38 : ball.vy * 0.8;
     ball.vx *= 0.82;
+    ball.vz = -Math.abs(ball.vz) * 0.6; // Bounce back in Z
+    
+    // Prevent getting stuck behind the backboard
+    ball.zDepth = (backboardZPx - effR - 1) / Z_TO_PX;
+    
     backboardHit = true;
     debug.recordMarker({
       x: backboardHitX,
@@ -1140,7 +1189,7 @@ function updateBallPhysics() {
       detail: "backboard-hit",
     });
     debug.log(
-      `backboard.hit contact=(${backboardHitX.toFixed(1)},${backboardHitY.toFixed(1)}) box=[${backboardLeft.toFixed(1)},${backboardTop.toFixed(1)}]-[${backboardRight.toFixed(1)},${backboardBottom.toFixed(1)}] ball=(${ball.x.toFixed(1)},${ball.y.toFixed(1)}) vy=${incomingVy.toFixed(2)}→${ball.vy.toFixed(2)}`,
+      `backboard.hit contact=(${backboardHitX.toFixed(1)},${backboardHitY.toFixed(1)}) box=[${backboardLeft.toFixed(1)},${backboardTop.toFixed(1)}]-[${backboardRight.toFixed(1)},${backboardBottom.toFixed(1)}] ball=(${ball.x.toFixed(1)},${ball.y.toFixed(1)}) vy=${incomingVy.toFixed(2)}→${ball.vy.toFixed(2)} vz=${incomingVz.toFixed(2)}→${ball.vz.toFixed(2)}`,
       "warn"
     );
   }
@@ -1148,18 +1197,21 @@ function updateBallPhysics() {
   /* Post-collision speed cap */
   if (rimHit || backboardHit) {
     const MAX_POST_HIT_SPEED = 8;
-    const sp = Math.hypot(ball.vx, ball.vy);
+    const sp = Math.hypot(ball.vx, ball.vy, ball.vz * Z_TO_PX);
     if (sp > MAX_POST_HIT_SPEED) {
       const k = MAX_POST_HIT_SPEED / sp;
       ball.vx *= k;
       ball.vy *= k;
+      ball.vz *= k;
     }
   }
 
-  /* ── Top-down crossing detection (uses fixed collision radius) ── */
+  /* ── Top-down crossing detection (3D-gated) ── */
   const ballBottom = ball.y + effR;
   const prevBallBottom = ball.prevY + effR;
+  const atHoopDepthCrossing = Math.abs(ball.zDepth - HOOP_Z) < RIM_Z_HALF;
   const crossedRimFromAbove =
+    atHoopDepthCrossing &&
     prevBallBottom <= rimY &&
     ballBottom > rimY &&
     ball.vy > 0 &&
@@ -1169,6 +1221,8 @@ function updateBallPhysics() {
   if (ball.hoopState === "outside" && crossedRimFromAbove) {
     ball.hoopState = "entering";
     ball.validEntry = true;
+    ball.entryFrame = ball.flightTime;
+    ball.clearedRimPlane = true;
     debug.recordMarker({
       x: ball.x,
       y: rimY,
@@ -1178,7 +1232,7 @@ function updateBallPhysics() {
       detail: "top-down-crossing",
     });
     debug.log(
-      `top-down crossing x=${ball.x.toFixed(1)} y=${ball.y.toFixed(1)} bottom=${ballBottom.toFixed(1)} prevBottom=${prevBallBottom.toFixed(1)}`,
+      `top-down crossing x=${ball.x.toFixed(1)} y=${ball.y.toFixed(1)} z=${ball.zDepth.toFixed(1)} bottom=${ballBottom.toFixed(1)} prevBottom=${prevBallBottom.toFixed(1)}`,
       "evt"
     );
   }
@@ -1186,37 +1240,54 @@ function updateBallPhysics() {
   /* ── Phase 1a: Centering BEFORE exit check ──
      This prevents the ball from being falsely ejected from "entering"
      state due to a momentary horizontal offset before centering corrects it. */
-  if ((ball.hoopState === "entering" || ball.hoopState === "scored") && ball.vy > 0) {
+  if (ball.hoopState === "entering" || ball.hoopState === "scored") {
     const insideNet = ball.y < hoop.rimY + hoop.netHeight;
     if (insideNet) {
+      const ballBottomInNet = ball.y + effR;
+      const entryGraceActive = ball.entryFrame ? ball.flightTime - ball.entryFrame <= 12 : false;
       ball.x += (hoop.centerX - ball.x) * 0.22;
       ball.vx *= 0.55;
-      ball.vy = Math.min(ball.vy, 4.5);
+      if (ball.vy > 0) {
+        ball.vy = Math.min(ball.vy, 4.5);
+      } else if (entryGraceActive && ballBottomInNet >= rimY - 4) {
+        ball.vy = Math.max(ball.vy * 0.25, 0.2);
+      }
+      ball.zDepth += (HOOP_Z - ball.zDepth) * HOOP_Z_LOCK_STRENGTH;
+      ball.vz *= HOOP_Z_VELOCITY_DAMPING;
     }
   }
 
-  /* ── Phase 1c: Exit check with velocity-reversal guard ──
-     Require the ball to clear well above the rim (rimY - 8) before resetting
-     to "outside" — a momentary vy flip from a rim rattle should not
-     invalidate a legitimate entry. Also check deepInsideNet before
-     allowing horizontal exit. */
+  /* ── Exit check (simplified with Z-gating) ──
+     Z naturally prevents re-collisions after the ball passes through.
+     Only revert to "outside" if the ball genuinely moves back above the rim
+     or exits the capture zone horizontally before going deep. */
   if (ball.hoopState === "entering") {
-    const deepInsideNet = ball.y >= rimY + hoop.netHeight * 0.12;
-    const movedBackAboveRim = ball.vy < 0 && ball.y < rimY - 8;
-    const exitedMouthHorizontally = !deepInsideNet && (ball.x <= captureLeftX || ball.x >= captureRightX);
+    const framesSinceEntry = ball.entryFrame ? ball.flightTime - ball.entryFrame : 999;
+    const entryGraceActive = framesSinceEntry <= 12;
+    const ballBottom = ball.y + effR;
+    const movedBackAboveRim = !entryGraceActive && ball.vy < 0 && ballBottom < rimY - 8;
+    const shallowInNet = ball.y < rimY + hoop.netHeight * 0.12;
+    const deepEnoughToCommit = ball.y >= rimY - 2 && ball.y <= rimY + hoop.netHeight * 0.65;
+    const exitedMouthHorizontally =
+      !deepEnoughToCommit &&
+      shallowInNet &&
+      (ball.x <= captureLeftX || ball.x >= captureRightX);
     if (movedBackAboveRim || exitedMouthHorizontally) {
-      debug.log(`exit-entering reason=${movedBackAboveRim ? "above-rim" : "horizontal"} x=${ball.x.toFixed(1)} y=${ball.y.toFixed(1)} vy=${ball.vy.toFixed(2)}`, "warn");
+      debug.log(`exit-entering reason=${movedBackAboveRim ? "above-rim" : "horizontal"} x=${ball.x.toFixed(1)} y=${ball.y.toFixed(1)} z=${ball.zDepth.toFixed(1)} vy=${ball.vy.toFixed(2)}`, "warn");
       ball.hoopState = "outside";
+      ball.entryFrame = null;
     }
   }
 
   /* ── Score registration ── */
+  const atNetDepthForScore = Math.abs(ball.zDepth - HOOP_Z) <= NET_Z_HALF;
   if (
     !ball.scored &&
     ball.validEntry &&
     ball.hoopState === "entering" &&
     ball.vy > 0 &&
     ball.y >= rimY + hoop.netHeight * 0.35 &&
+    atNetDepthForScore &&
     ball.x > captureLeftX &&
     ball.x < captureRightX
   ) {
@@ -1229,7 +1300,7 @@ function updateBallPhysics() {
       detail: "score-trigger",
     });
     debug.log(
-      `score-trigger x=${ball.x.toFixed(1)} y=${ball.y.toFixed(1)} scoreDepth=${(rimY + hoop.netHeight * 0.35).toFixed(1)} capture=[${captureLeftX.toFixed(1)},${captureRightX.toFixed(1)}]`,
+      `score-trigger x=${ball.x.toFixed(1)} y=${ball.y.toFixed(1)} z=${ball.zDepth.toFixed(1)} scoreDepth=${(rimY + hoop.netHeight * 0.35).toFixed(1)} zDepth=[${(HOOP_Z - NET_Z_HALF).toFixed(1)},${(HOOP_Z + NET_Z_HALF).toFixed(1)}] capture=[${captureLeftX.toFixed(1)},${captureRightX.toFixed(1)}]`,
       "evt"
     );
     registerScore();
@@ -1310,12 +1381,12 @@ function depthScale(z) {
 function getDynamicScale() {
   if (!renderSystem) {
     if (ball.hoopState === "entering" || ball.hoopState === "scored") {
-      return depthScale(clamp((DEPTH_ANCHOR_Y - hoop.rimY) / 3.93, 0, 110));
+      return depthScale(HOOP_Z);
     }
     if (!ball.active && !ball.scored) {
       return BALL_REST_SCALE;
     }
-    return depthScale(ball.z);
+    return depthScale(ball.zDepth);
   }
   return renderSystem.getDynamicScale();
 }
@@ -1453,6 +1524,7 @@ restartConfirmButton.addEventListener("click", () => {
   resetGame();
 });
 helpButton.addEventListener("click", () => {
+  loadDeferredImages(helpOverlay);
   helpOverlay.classList.add("visible");
 });
 helpCloseButton.addEventListener("click", () => {
@@ -1477,6 +1549,10 @@ if (assistInfoCloseButton) {
     assistInfoOverlay.classList.remove("visible");
   });
 }
+
+window.addEventListener("load", () => {
+  scheduleDeferredImageLoad(startOverlay);
+}, { once: true });
 auxCloseButton.addEventListener("click", () => {
   if (uiSystem) {
     uiSystem.hideAuxOverlay();
@@ -1506,68 +1582,70 @@ replayButton.addEventListener("click", () => {
 });
 
 /* ─── Debug modal triggers ─── */
-document.querySelectorAll("[data-dbg-modal]").forEach((btn) => {
-  btn.addEventListener("click", () => {
-    if (!debug.isEnabled()) return;
-    const key = btn.dataset.dbgModal;
-    switch (key) {
-      case "start":
-        startOverlay.classList.add("visible");
-        break;
-      case "help":
-        helpOverlay.classList.add("visible");
-        break;
-      case "restart":
-        restartConfirmOverlay.classList.add("visible");
-        break;
-      case "win":
-        showOverlay({
-          eyebrow: "",
-          title: "3/3! Είσαι μέσα!",
-          body: "Είσαι ένα βήμα πριν την συμμετοχή σου στην κλήρωση!",
-          buttonLabel: "Διεκδίκησε το δώρο σου",
-          showReplay: true,
-          variant: "win",
-        });
-        break;
-      case "loss":
-        showOverlay({
-          eyebrow: "Τέλος",
-          title: "Δεν τα κατάφερες",
-          body: "Δοκίμασε ξανά!",
-          buttonLabel: "Παίξε ξανά",
-        });
-        break;
-      case "form":
-        leadForm.classList.remove("hidden");
-        break;
-      case "terms":
-        openAuxPage("terms");
-        break;
-      case "contest":
-        openAuxPage("contest");
-        break;
-      case "privacy":
-        openAuxPage("privacy");
-        break;
-      default:
-        break;
-    }
+if (DEBUG_ALLOWED) {
+  document.querySelectorAll("[data-dbg-modal]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      if (!debug.isEnabled()) return;
+      const key = btn.dataset.dbgModal;
+      switch (key) {
+        case "start":
+          startOverlay.classList.add("visible");
+          break;
+        case "help":
+          helpOverlay.classList.add("visible");
+          break;
+        case "restart":
+          restartConfirmOverlay.classList.add("visible");
+          break;
+        case "win":
+          showOverlay({
+            eyebrow: "",
+            title: "3/3! Είσαι μέσα!",
+            body: "Είσαι ένα βήμα πριν την συμμετοχή σου στην κλήρωση!",
+            buttonLabel: "Διεκδίκησε το δώρο σου",
+            showReplay: true,
+            variant: "win",
+          });
+          break;
+        case "loss":
+          showOverlay({
+            eyebrow: "Τέλος",
+            title: "Δεν τα κατάφερες",
+            body: "Δοκίμασε ξανά!",
+            buttonLabel: "Παίξε ξανά",
+          });
+          break;
+        case "form":
+          leadForm.classList.remove("hidden");
+          break;
+        case "terms":
+          openAuxPage("terms");
+          break;
+        case "contest":
+          openAuxPage("contest");
+          break;
+        case "privacy":
+          openAuxPage("privacy");
+          break;
+        default:
+          break;
+      }
+    });
   });
-});
 
-const dbgHideAll = document.getElementById("dbgHideAll");
-if (dbgHideAll) {
-  dbgHideAll.addEventListener("click", () => {
-    if (!debug.isEnabled()) return;
-    startOverlay.classList.remove("visible");
-    helpOverlay.classList.remove("visible");
-    restartConfirmOverlay.classList.remove("visible");
-    messageOverlay.classList.remove("visible");
-    auxOverlay.classList.remove("visible");
-    leadForm.classList.add("hidden");
-    state.awaitingMessage = false;
-  });
+  const dbgHideAll = document.getElementById("dbgHideAll");
+  if (dbgHideAll) {
+    dbgHideAll.addEventListener("click", () => {
+      if (!debug.isEnabled()) return;
+      startOverlay.classList.remove("visible");
+      helpOverlay.classList.remove("visible");
+      restartConfirmOverlay.classList.remove("visible");
+      messageOverlay.classList.remove("visible");
+      auxOverlay.classList.remove("visible");
+      leadForm.classList.add("hidden");
+      state.awaitingMessage = false;
+    });
+  }
 }
 
 /* ─── Boot ─── */

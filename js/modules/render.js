@@ -25,6 +25,9 @@
       BALL_DISPLAY_RADIUS,
       BALL_REST_SCALE,
       DEPTH_ANCHOR_Y,
+      HOOP_Z,
+      NET_Z_HALF = 14,
+      Z_TO_PX = 3.93,
     } = constants;
 
     let bgCache = null;
@@ -57,34 +60,30 @@
       return 1 - Math.pow(t, 0.85) * 0.6;
     }
 
-    const rimDepthScale = depthScale(clamp((DEPTH_ANCHOR_Y - hoop.rimY) / 3.93, 0, 110));
+    const rimDepthScale = depthScale(HOOP_Z);
 
-    const HOOP_PROXIMITY_OUTER = 160;
-    const HOOP_PROXIMITY_INNER = 30;
-    const HOOP_PROXIMITY_MAX_BOOST = 0.28;
-
-    function hoopProximityBoost() {
-      const dx = ball.x - hoop.centerX;
-      const dy = ball.y - hoop.rimY;
-      const dist = Math.hypot(dx, dy);
-      if (dist >= HOOP_PROXIMITY_OUTER) return 1;
-      const raw = clamp(
-        (HOOP_PROXIMITY_OUTER - dist) / (HOOP_PROXIMITY_OUTER - HOOP_PROXIMITY_INNER),
-        0,
-        1,
+    function isBallAtHoopRenderDepth() {
+      return (
+        ball.hoopState === "entering" ||
+        ball.hoopState === "scored" ||
+        (
+          ball.clearedRimPlane &&
+          ball.vy > 0 &&
+          ball.y >= hoop.rimY - BALL_DISPLAY_RADIUS * 0.55 &&
+          ball.y <= hoop.rimY + hoop.netHeight &&
+          Math.abs(ball.zDepth - HOOP_Z) <= NET_Z_HALF
+        )
       );
-      const eased = raw * raw * (3 - 2 * raw);
-      return 1 + eased * HOOP_PROXIMITY_MAX_BOOST;
     }
 
     function getDynamicScale() {
-      if (ball.hoopState === "entering" || ball.hoopState === "scored") {
-        return rimDepthScale * hoopProximityBoost();
+      if (isBallAtHoopRenderDepth()) {
+        return rimDepthScale;
       }
       if (!ball.active && !ball.scored) {
         return BALL_REST_SCALE;
       }
-      return depthScale(ball.z) * hoopProximityBoost();
+      return depthScale(ball.zDepth);
     }
 
     function getBallSpinFrameIndex(angle = ball.angle) {
@@ -98,23 +97,33 @@
       return ballSpinFrames[getBallSpinFrameIndex(angle)] || ballImage;
     }
 
+    let glowGradCache = null;
+    let glowGradKey = -1;
     function drawBallGlow() {
       if (!state.dragging || ball.active) return;
-      const pulse = (Math.sin(Date.now() / 180) + 1) * 0.5;
+      const pulse = (Math.sin(performance.now() / 180) + 1) * 0.5;
       const baseR = BALL_DISPLAY_RADIUS * getDynamicScale();
       const glowR = baseR + 10 + pulse * 8;
-      const grad = ctx.createRadialGradient(ball.x, ball.y, baseR * 0.6, ball.x, ball.y, glowR);
-      grad.addColorStop(0, `rgba(255, 196, 64, ${0.35 + pulse * 0.25})`);
-      grad.addColorStop(1, "rgba(255, 196, 64, 0)");
-      ctx.fillStyle = grad;
+      /* Cache key: quantized pulse step (0..19) + quantized radius. Gradient anchored at (0,0); translate to ball pos. */
+      const key = (Math.round(pulse * 20) << 12) | (Math.round(glowR * 4) & 0xfff);
+      if (key !== glowGradKey || !glowGradCache) {
+        glowGradCache = ctx.createRadialGradient(0, 0, baseR * 0.6, 0, 0, glowR);
+        glowGradCache.addColorStop(0, `rgba(255, 196, 64, ${0.35 + pulse * 0.25})`);
+        glowGradCache.addColorStop(1, "rgba(255, 196, 64, 0)");
+        glowGradKey = key;
+      }
+      ctx.save();
+      ctx.translate(ball.x, ball.y);
+      ctx.fillStyle = glowGradCache;
       ctx.beginPath();
-      ctx.arc(ball.x, ball.y, glowR, 0, Math.PI * 2);
+      ctx.arc(0, 0, glowR, 0, Math.PI * 2);
       ctx.fill();
+      ctx.restore();
     }
 
     function drawBallShadowAndTrail() {
       if (ball.opacity <= 0) return;
-      if (ball.trail.length > 1) {
+      if (!isBallAtHoopRenderDepth() && ball.trail.length > 1) {
         const len = ball.trail.length;
         for (let i = 0; i < len - 1; i++) {
           const t = (i + 1) / len;
@@ -150,8 +159,8 @@
       }
 
       if (ball.y < GAME_HEIGHT - 80) {
-        const scale = depthScale(ball.z);
-        const shadowOffset = BALL_DISPLAY_RADIUS * (0.55 + clamp(ball.z / 110, 0, 1) * 0.75);
+        const scale = depthScale(ball.zDepth);
+        const shadowOffset = BALL_DISPLAY_RADIUS * (0.55 + clamp(ball.zDepth / 110, 0, 1) * 0.75);
         const shadowY = clamp(ball.y + shadowOffset, hoop.rimY + 34, GAME_HEIGHT - 50);
         const shadowScale = Math.max(0.28, 1 - shadowOffset / 130) * scale;
         ctx.fillStyle = `rgba(0, 0, 0, ${0.18 * shadowScale})`;
@@ -234,7 +243,7 @@
         sctx.clearRect(0, 0, SCORE_TEXT_W, SCORE_TEXT_H);
         sctx.textAlign = "center";
         sctx.textBaseline = "middle";
-        sctx.font = "700 32px 'Chakra Petch', 'Bergen Sans', sans-serif";
+        sctx.font = "700 32px 'Bergen Sans', sans-serif";
         sctx.lineWidth = 6;
         sctx.strokeStyle = "rgba(0, 0, 0, 0.7)";
         sctx.strokeText(text, SCORE_TEXT_W / 2, SCORE_TEXT_H / 2);
@@ -278,7 +287,7 @@
       ctx.scale(scale, scale);
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.font = "700 32px 'Chakra Petch', 'Bergen Sans', sans-serif";
+      ctx.font = "700 32px 'Bergen Sans', sans-serif";
       ctx.lineWidth = 6;
       ctx.strokeStyle = `rgba(0, 0, 0, ${0.7 * alpha})`;
       ctx.strokeText(state.scoreMessage.text, 0, 0);
@@ -289,7 +298,7 @@
 
     function drawAssistGlow() {
       if (!state.assistMode || state.finished || !state.started) return;
-      const pulse = (Math.sin(Date.now() / 140) + 1) * 0.5;
+      const pulse = (Math.sin(performance.now() / 140) + 1) * 0.5;
       ctx.beginPath();
       ctx.fillStyle = `rgba(12, 162, 80, ${0.06 + pulse * 0.06})`;
       ctx.arc(hoop.centerX, hoop.rimY, 80 + pulse * 14, 0, Math.PI * 2);
@@ -305,12 +314,13 @@
       drawBallShadowAndTrail();
       drawBallGlow();
 
-      const droppingIntoNet =
-        (ball.hoopState === "entering" || ball.hoopState === "scored") &&
-        ball.vy > 0 &&
-        ball.y >= hoop.rimY - 2;
+      const dxRim = ball.x - hoop.centerX;
+      const frontRimZ = HOOP_Z - Math.sqrt(Math.max(0, hoop.rimRadius * hoop.rimRadius - dxRim * dxRim)) / Z_TO_PX;
+      const ballBehindHoop =
+        ((ball.hoopState === "entering" || ball.hoopState === "scored") && ball.y >= hoop.rimY - 2) ||
+        ball.zDepth >= frontRimZ;
 
-      if (droppingIntoNet) {
+      if (ballBehindHoop) {
         drawBallSprite();
         hooks.drawNet();
         hooks.drawFrontHoop();

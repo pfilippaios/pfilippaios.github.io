@@ -54,7 +54,7 @@ html, body {
 
 body {
   margin: 0;
-  font-family: 'Bergen Sans', 'Chakra Petch', sans-serif;
+  font-family: 'Bergen Sans', sans-serif;
   color: var(--text-main);
   background: var(--bg-deep);
   display: flex;
@@ -146,7 +146,7 @@ body {
 }
 
 .brand-lockup h1 {
-  font-family: 'Bergen Sans', 'Press Start 2P', cursive;
+  font-family: 'Bergen Sans', ui-monospace, monospace;
   font-weight: 600;
   font-size: clamp(17px, 3.9vw, 20px);
   margin: 0;
@@ -299,7 +299,7 @@ body {
 }
 
 .scoreboard-label {
-  font-family: 'Press Start 2P', 'Bergen Sans', cursive;
+  font-family: 'Bergen Sans', ui-monospace, monospace;
   font-size: 6px;
   letter-spacing: 0.2px;
   line-height: 1;
@@ -316,7 +316,7 @@ body {
 .scoreboard-value,
 .scoreboard-timer,
 .scoreboard-period {
-  font-family: 'Chakra Petch', 'Bergen Sans', sans-serif;
+  font-family: 'Bergen Sans', sans-serif;
   font-weight: 700;
   line-height: 1;
   letter-spacing: 0.5px;
@@ -456,7 +456,7 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.16);
   box-shadow: 0 8px 22px rgba(0, 0, 0, 0.28);
   color: #f8fafc;
-  font-family: 'Bergen Sans', 'Press Start 2P', cursive;
+  font-family: 'Bergen Sans', ui-monospace, monospace;
   font-size: 10px;
   letter-spacing: 0.35px;
   text-transform: none;
@@ -470,7 +470,7 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.1);
   box-shadow: 0 14px 28px rgba(0, 0, 0, 0.3);
   color: #eef2f7;
-  font-family: 'Chakra Petch', 'Bergen Sans', sans-serif;
+  font-family: 'Bergen Sans', sans-serif;
   font-size: 13px;
   font-weight: 500;
   line-height: 1.35;
@@ -525,7 +525,7 @@ canvas {
   position: absolute;
   inset: 0;
   background: rgba(0, 0, 0, 0.82);
-  display: flex;
+  display: none;
   align-items: center;
   justify-content: center;
   padding: clamp(16px, 4vw, 24px) clamp(16px, 4vw, 24px) clamp(28px, 8vw, 86px);
@@ -536,6 +536,7 @@ canvas {
 }
 
 .overlay.visible {
+  display: flex;
   opacity: 1;
   visibility: visible;
 }
@@ -551,7 +552,7 @@ canvas {
 }
 
 .overlay-card h2, .lead-card h2 {
-  font-family: 'Bergen Sans', 'Press Start 2P', cursive;
+  font-family: 'Bergen Sans', ui-monospace, monospace;
   font-weight: 600;
   font-size: var(--type-xl);
   color: var(--brand-green);
@@ -688,7 +689,7 @@ canvas {
 }
 
 .prize-heading {
-  font-family: 'Bergen Sans', 'Chakra Petch', sans-serif;
+  font-family: 'Bergen Sans', sans-serif;
   font-weight: 700;
   font-size: 16px;
   letter-spacing: 0.6px;
@@ -773,7 +774,7 @@ canvas {
   background: linear-gradient(180deg, #5ec8d4 0%, #2fa6c7 55%, #1a8fba 100%);
   border: none;
   color: #fff;
-  font-family: 'Chakra Petch', 'Bergen Sans', sans-serif;
+  font-family: 'Bergen Sans', sans-serif;
   font-weight: 500;
   font-size: var(--type-md);
   letter-spacing: 0.3px;
@@ -807,7 +808,7 @@ canvas {
   background: transparent;
   border: 2px solid rgba(94, 200, 212, 0.4);
   color: #5ec8d4;
-  font-family: 'Chakra Petch', 'Bergen Sans', sans-serif;
+  font-family: 'Bergen Sans', sans-serif;
   font-weight: 500;
   font-size: var(--type-md);
   padding: 12px 20px;
@@ -888,7 +889,7 @@ canvas {
 
 .form-field label {
   display: block;
-  font-family: 'Bergen Sans', 'Chakra Petch', sans-serif;
+  font-family: 'Bergen Sans', sans-serif;
   font-size: 13px;
   font-weight: 600;
   color: #d7d3e2;
@@ -903,7 +904,7 @@ canvas {
   border: 2px solid #3a2a50;
   color: #fff;
   padding: 8px 11px;
-  font-family: 'Bergen Sans', 'Chakra Petch', sans-serif;
+  font-family: 'Bergen Sans', sans-serif;
   font-size: 13px;
   border-radius: 6px;
   outline: none;
@@ -971,7 +972,7 @@ canvas {
 }
 
 .eyebrow {
-  font-family: 'Bergen Sans', 'Press Start 2P', cursive;
+  font-family: 'Bergen Sans', ui-monospace, monospace;
   font-weight: 600;
   font-size: var(--type-xs);
   color: var(--brand-blue);
@@ -1022,7 +1023,7 @@ canvas {
 }
 
 .overlay-card.is-loss .eyebrow {
-  font-family: 'Bergen Sans', 'Press Start 2P', cursive;
+  font-family: 'Bergen Sans', ui-monospace, monospace;
   font-weight: 400;
   font-size: 20px;
   color: #ffffff;
@@ -1078,7 +1079,7 @@ canvas {
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 16px;
   padding: 10px 12px;
-  font-family: 'Bergen Sans', 'Chakra Petch', sans-serif;
+  font-family: 'Bergen Sans', sans-serif;
   font-size: 10.5px;
   font-weight: 400;
   line-height: 1.35;
@@ -1123,7 +1124,7 @@ canvas {
   border: 0;
   padding: 0;
   color: var(--text-main);
-  font-family: 'Chakra Petch', 'Bergen Sans', sans-serif;
+  font-family: 'Bergen Sans', sans-serif;
   font-size: var(--type-xs);
   line-height: 1.4;
   text-decoration: underline;
@@ -1188,7 +1189,7 @@ canvas {
 .aux-content h3 {
   margin: 0 0 8px;
   color: #5ec8d4;
-  font-family: 'Chakra Petch', 'Bergen Sans', sans-serif;
+  font-family: 'Bergen Sans', sans-serif;
   font-size: var(--type-md);
   font-weight: 600;
 }

@@ -49,10 +49,13 @@
       ball.scored = false;
       ball.trail = [];
       ball.hoopState = "outside";
-      ball.frontRimGraceUsed = false;
       ball.flightTime = 0;
       ball.z = 0;
+      ball.zDepth = 0;
+      ball.vz = 0;
       ball.validEntry = false;
+      ball.entryFrame = null;
+      ball.clearedRimPlane = false;
       ball.groundBounced = false;
       ball.opacity = 1.0;
       ball.settledTime = null;

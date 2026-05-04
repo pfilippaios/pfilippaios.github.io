@@ -32,7 +32,11 @@
       const backboardLeft = hoop.centerX - hoop.backboardWidth * 0.5;
       const backboardTop = rimY - 110;
       const backboardWidth = hoop.backboardWidth;
-      const backboardHeight = 18;
+      const backboardHeight = 55;
+      const hoopZ = constants.HOOP_Z || 75;
+      const zToPx = constants.Z_TO_PX || 3.93;
+      const netZHalf = constants.NET_Z_HALF || 14;
+      const backboardZ = hoopZ + (hoop.rimRadius + 12) / zToPx;
 
       if (ball.active && ball.y < debugApex) debugApex = ball.y;
       if (!ball.active) debugApex = Infinity;
@@ -57,13 +61,15 @@
       ctx.strokeStyle = "rgba(255, 209, 102, 0.95)";
       ctx.strokeRect(backboardLeft, backboardTop, backboardWidth, backboardHeight);
       ctx.fillStyle = "rgba(255, 209, 102, 0.95)";
-      ctx.fillText("backboard", backboardLeft + 2, backboardTop - 4);
+      ctx.fillText(`backboard z=${backboardZ.toFixed(1)}`, backboardLeft + 2, backboardTop - 4);
 
       ctx.strokeStyle = "rgba(255, 99, 99, 0.9)";
       ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.ellipse(hoop.centerX, rimY, hoop.rimRadius, hoop.rimRadius * 0.3, 0, 0, Math.PI * 2);
       ctx.stroke();
+      ctx.fillStyle = "rgba(255, 99, 99, 0.9)";
+      ctx.fillText("rim screen ref", hoop.centerX + hoop.rimRadius + 4, rimY - 4);
 
       ctx.lineWidth = 1;
       ctx.strokeStyle = "rgba(255, 0, 0, 0.5)";
@@ -133,7 +139,8 @@
       ctx.textBaseline = "alphabetic";
       ctx.fillStyle = "yellow";
       ctx.font = "12px monospace";
-      ctx.fillText(`ball.y=${ball.y.toFixed(0)} vy=${ball.vy.toFixed(2)} hoop=${ball.hoopState}`, 8, constants.GAME_HEIGHT - 34);
+      ctx.fillText(`ball.y=${ball.y.toFixed(0)} vy=${ball.vy.toFixed(2)} hoop=${ball.hoopState}`, 8, constants.GAME_HEIGHT - 48);
+      ctx.fillText(`zDepth=${(ball.zDepth || 0).toFixed(1)} vz=${(ball.vz || 0).toFixed(2)} hoopZ=${hoopZ} netZ=±${netZHalf}`, 8, constants.GAME_HEIGHT - 34);
       ctx.fillText(`rimY=${rimY} apex=${isFinite(debugApex) ? debugApex.toFixed(0) : "-"} scoreY=${scoreDepthY.toFixed(1)}`, 8, constants.GAME_HEIGHT - 20);
       ctx.fillText(`capture=[${captureLeftX.toFixed(1)}, ${captureRightX.toFixed(1)}] ballR=${effR.toFixed(1)}`, 8, constants.GAME_HEIGHT - 6);
 

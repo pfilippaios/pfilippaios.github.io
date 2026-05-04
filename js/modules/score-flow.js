@@ -69,6 +69,11 @@
             ball.scored = false;
             ball.trail = [];
             ball.z = 0;
+            ball.zDepth = 0;
+            ball.vz = 0;
+            ball.validEntry = false;
+            ball.entryFrame = null;
+            ball.clearedRimPlane = false;
           }
 
           if (sinceSettle >= 1400) {

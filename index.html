@@ -20,16 +20,13 @@
     <link rel="icon" type="image/png" sizes="32x32" href="./assets/brand/favicon-32.png" />
     <link rel="icon" type="image/png" sizes="64x64" href="./assets/brand/favicon.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="./assets/brand/apple-touch-icon.png" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Chakra+Petch:wght@400;500;600;700&display=swap"
-      rel="stylesheet"
-    />
+    <link rel="preload" href="./assets/ui/modals/bg-intro.webp" as="image" fetchpriority="high" />
+    <link rel="preload" href="./assets/ui/modals/logo-shoot-win-small.webp" as="image" fetchpriority="high" />
+    <link rel="preload" href="./assets/brand/logo.webp" as="image" fetchpriority="high" />
     <link rel="preload" href="./assets/game/background/bg.webp" as="image" fetchpriority="high" />
     <link rel="preload" href="./assets/game/ball/new_ball.webp" as="image" fetchpriority="high" />
-    <link rel="preload" href="./assets/game/hoop/front-hoop.png" as="image" fetchpriority="high" />
     <link rel="preload" href="./assets/game/net/net-state-01-idle.webp" as="image" fetchpriority="high" />
+    <link rel="preload" href="./assets/game/hoop/front-hoop.webp" as="image" fetchpriority="high" />
     <link rel="stylesheet" href="./css/style.css" />
   </head>
   <body>
@@ -142,7 +139,7 @@
               <div class="overlay-card intro-card">
                 <img
                   class="intro-hero-logo"
-                  src="./assets/ui/modals/logo-shoot-win.webp"
+                  src="./assets/ui/modals/logo-shoot-win-small.webp"
                   alt="SHOOT & WIN"
                   decoding="async"
                 />
@@ -158,15 +155,15 @@
                   <ul class="prize-list">
                     <li class="prize-item">
                       <p class="prize-name">Tο Ρεύμα της Χρονιάς από το Φυσικό Αέριο Ελληνική Εταιρεία Ενέργειας</p>
-                      <img class="prize-image" src="./assets/ui/modals/prize-revma.webp" alt="Ρεύμα της Χρονιάς" decoding="async" />
+                      <img class="prize-image" data-src="./assets/ui/modals/prize-revma.webp" alt="Ρεύμα της Χρονιάς" decoding="async" loading="lazy" />
                     </li>
                     <li class="prize-item">
                       <p class="prize-name">1 Samsung OLED TV</p>
-                      <img class="prize-image" src="./assets/ui/modals/prize-samsung-tv.webp" alt="Samsung OLED TV" decoding="async" />
+                      <img class="prize-image" data-src="./assets/ui/modals/prize-samsung-tv.webp" alt="Samsung OLED TV" decoding="async" loading="lazy" />
                     </li>
                     <li class="prize-item">
                       <p class="prize-name">1 Samsung Projector</p>
-                      <img class="prize-image" src="./assets/ui/modals/prize-samsung-projector.webp" alt="Samsung Projector" decoding="async" />
+                      <img class="prize-image" data-src="./assets/ui/modals/prize-samsung-projector.webp" alt="Samsung Projector" decoding="async" loading="lazy" />
                     </li>
                   </ul>
                 </div>
@@ -194,9 +191,10 @@
                 <h2>Στόχευσε σωστά</h2>
                 <img
                   class="modal-graphic"
-                  src="./assets/ui/modals/help_img.webp"
+                  data-src="./assets/ui/modals/help_img.webp"
                   alt="Σύρε την μπάλα προς το καλάθι και πέτυχε τρία εύστοχα σουτ."
                   decoding="async"
+                  loading="lazy"
                 />
                 <p>
                   Βρες ρυθμό, πέτυχε <strong class="copy-accent">3 εύστοχα σουτ</strong><br />
@@ -213,9 +211,10 @@
                 <h2>Τι κάνει;</h2>
                 <img
                   class="modal-graphic"
-                  src="./assets/ui/modals/assist_img.webp"
+                  data-src="./assets/ui/modals/assist_img.webp"
                   alt="Η βοήθεια στόχευσης κατευθύνει την μπάλα ελαφρώς προς το καλάθι."
                   decoding="async"
+                  loading="lazy"
                 />
                 <p>
                   Όταν είναι <strong class="copy-accent">ενεργή</strong>,<br />
@@ -394,23 +393,7 @@
         },
       };
     </script>
-    <script defer src="./js/modules/utils.js"></script>
-    <script defer src="./js/modules/assets.js"></script>
-    <script defer src="./js/modules/audio.js"></script>
-    <script defer src="./js/modules/particles.js"></script>
-    <script defer src="./js/modules/bird.js"></script>
-    <script defer src="./js/modules/crowd.js"></script>
-    <script defer src="./js/modules/lead-form.js"></script>
-    <script defer src="./js/modules/contest-terms.js"></script>
-    <script defer src="./js/modules/ui.js"></script>
-    <script defer src="./js/modules/session.js"></script>
-    <script defer src="./js/modules/debug.js"></script>
-    <script defer src="./js/modules/debug-rim.js"></script>
-    <script defer src="./js/modules/round-flow.js"></script>
-    <script defer src="./js/modules/score-flow.js"></script>
-    <script defer src="./js/modules/controls.js"></script>
-    <script defer src="./js/modules/net.js"></script>
-    <script defer src="./js/modules/render.js"></script>
+    <script defer src="./js/modules.bundle.js"></script>
     <script defer src="./js/game.js"></script>
   </body>
 </html>
