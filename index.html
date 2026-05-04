@@ -3,7 +3,23 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>ΦΥΣΙΚΟ ΑΕΡΙΟ Hoops</title>
+    <title>Shoot &amp; Win</title>
+    <meta name="description" content="Shoot &amp; Win — παίξε μπάσκετ και διεκδίκησε δώρα από το Φυσικό Αέριο." />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Shoot &amp; Win" />
+    <meta property="og:description" content="Παίξε μπάσκετ και διεκδίκησε δώρα από το Φυσικό Αέριο." />
+    <meta property="og:image" content="https://example.com/assets/brand/og-image.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Shoot &amp; Win — Φυσικό Αέριο" />
+    <meta property="og:url" content="https://example.com/" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Shoot &amp; Win" />
+    <meta name="twitter:description" content="Παίξε μπάσκετ και διεκδίκησε δώρα από το Φυσικό Αέριο." />
+    <meta name="twitter:image" content="https://example.com/assets/brand/og-image.jpg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="./assets/brand/favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="64x64" href="./assets/brand/favicon.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="./assets/brand/apple-touch-icon.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -11,8 +27,8 @@
       rel="stylesheet"
     />
     <link rel="preload" href="./assets/game/background/bg.webp" as="image" fetchpriority="high" />
-    <link rel="preload" href="./assets/game/ball/ball.webp" as="image" fetchpriority="high" />
-    <link rel="preload" href="./assets/game/hoop/front-hoop.webp" as="image" fetchpriority="high" />
+    <link rel="preload" href="./assets/game/ball/new_ball.webp" as="image" fetchpriority="high" />
+    <link rel="preload" href="./assets/game/hoop/front-hoop.png" as="image" fetchpriority="high" />
     <link rel="preload" href="./assets/game/net/net-state-01-idle.webp" as="image" fetchpriority="high" />
     <link rel="stylesheet" href="./css/style.css" />
   </head>
@@ -23,7 +39,7 @@
           <header class="topbar">
             <div class="brand-lockup">
               <img class="brand-logo" src="./assets/brand/logo.webp" alt="ΦΥΣΙΚΟ ΑΕΡΙΟ" />
-              <h1>Hoop Rush</h1>
+              <h1>Shoot &amp; Win</h1>
             </div>
           </header>
           <section class="canvas-panel">
@@ -123,22 +139,37 @@
             ></canvas>
 
             <div class="overlay visible" id="startOverlay">
-              <div class="overlay-card">
-                <h2>Hoop Rush</h2>
-                <p class="eyebrow">By ΦΥΣΙΚΟ&nbsp;ΑΕΡΙΟ</p>
-                <p>
-                  Μπες στο <strong class="copy-accent">Hoop Rush</strong><br />
-                  και δοκίμασε την ευστοχία σου<br />
-                  με <strong>5 ευκαιρίες</strong> για μεγάλο παιχνίδι.
-                </p>
-                <p>
-                  Πέτυχε <strong class="copy-accent">3 καλάθια</strong><br />
-                  για να ξεκλειδώσεις τη συμμετοχή σου<br />
-                  στην κλήρωση για δώρα από το <strong>ΦΥΣΙΚΟ ΑΕΡΙΟ</strong>.
+              <div class="overlay-card intro-card">
+                <img
+                  class="intro-hero-logo"
+                  src="./assets/ui/modals/logo-shoot-win.webp"
+                  alt="SHOOT & WIN"
+                  decoding="async"
+                />
+                <h2 class="intro-title">Έχεις σουτ;</h2>
+                <p class="intro-sub">
+                  Βάλε <strong>3 βολές</strong> και διεκδίκησε το δώρο σου!
                 </p>
                 <button class="primary-button" type="button" id="startButton">
-                  Πάμε να παίξουμε
+                  Παίξε τώρα!
                 </button>
+                <div class="prize-section">
+                  <p class="prize-heading">ΚΕΡΔΙΣΕ...</p>
+                  <ul class="prize-list">
+                    <li class="prize-item">
+                      <p class="prize-name">Tο Ρεύμα της Χρονιάς από το Φυσικό Αέριο Ελληνική Εταιρεία Ενέργειας</p>
+                      <img class="prize-image" src="./assets/ui/modals/prize-revma.webp" alt="Ρεύμα της Χρονιάς" decoding="async" />
+                    </li>
+                    <li class="prize-item">
+                      <p class="prize-name">1 Samsung OLED TV</p>
+                      <img class="prize-image" src="./assets/ui/modals/prize-samsung-tv.webp" alt="Samsung OLED TV" decoding="async" />
+                    </li>
+                    <li class="prize-item">
+                      <p class="prize-name">1 Samsung Projector</p>
+                      <img class="prize-image" src="./assets/ui/modals/prize-samsung-projector.webp" alt="Samsung Projector" decoding="async" />
+                    </li>
+                  </ul>
+                </div>
                 <div class="aux-footer">
                   <img class="aux-footer-logo" src="./assets/brand/logo.webp" alt="ΦΥΣΙΚΟ ΑΕΡΙΟ" />
                   <nav class="aux-footer-nav" aria-label="Νομικές πληροφορίες">
@@ -147,7 +178,7 @@
                     <button class="aux-link" type="button" data-aux-page="privacy">Προσωπικά δεδομένα</button>
                   </nav>
                   <p class="aux-footer-note">
-                    Η ενέργεια πραγματοποιείται από το ΦΥΣΙΚΟ&nbsp;ΑΕΡΙΟ.
+                    Η ενέργεια πραγματοποιείται από το <strong>Φυσικό Αέριο Ελληνική Εταιρεία Ενέργειας</strong>.
                     Ισχύουν όροι και προϋποθέσεις.
                   </p>
                 </div>
@@ -169,7 +200,7 @@
                   και άνοιξε τον δρόμο<br />
                   για την κλήρωση με <strong>ξεχωριστά δώρα.</strong>
                 </p>
-                <button class="primary-button" type="button" id="helpCloseButton">Πάμε</button>
+                <button class="primary-button" type="button" id="helpCloseButton">Παίξε τώρα!</button>
                 <div class="aux-footer">
                   <img class="aux-footer-logo" src="./assets/brand/logo.webp" alt="ΦΥΣΙΚΟ ΑΕΡΙΟ" />
                   <nav class="aux-footer-nav" aria-label="Νομικές πληροφορίες">
@@ -178,7 +209,7 @@
                     <button class="aux-link" type="button" data-aux-page="privacy">Προσωπικά δεδομένα</button>
                   </nav>
                   <p class="aux-footer-note">
-                    Η ενέργεια πραγματοποιείται από το ΦΥΣΙΚΟ&nbsp;ΑΕΡΙΟ.
+                    Η ενέργεια πραγματοποιείται από το ΦΥΣΙΚΟ&nbsp;ΑΕΡΙΟ ΕΛΛΗΝΙΚΗ ΕΤΑΙΡΕΙΑ ΕΝΕΡΓΕΙΑΣ.
                     Ισχύουν όροι και προϋποθέσεις.
                   </p>
                 </div>
@@ -246,13 +277,8 @@
               data-pending-message="Γίνεται καταχώρηση της συμμετοχής σου..."
             >
               <div class="lead-copy">
-                <h2>Συμμετοχή στην κλήρωση</h2>
-                <p>
-                  Ολοκλήρωσες το <strong class="copy-accent">Hoop Rush</strong>;<br />
-                  Συμπλήρωσε τη φόρμα για να κατοχυρώσεις τη συμμετοχή σου<br />
-                  για projector, ρεύμα όλης της χρονιάς<br />
-                  και πολλά ακόμα πλούσια δώρα από το <strong>ΦΥΣΙΚΟ ΑΕΡΙΟ</strong>.
-                </p>
+                <h2>Είσαι μέσα!</h2>
+                <p>Συμπλήρωσε τα στοιχεία σου και μπες στην κλήρωση</p>
               </div>
 
               <div class="form-fields">
@@ -282,7 +308,7 @@
                   </label>
                 </div>
 
-                <button class="primary-button" type="submit">Υποβολή</button>
+                <button class="primary-button" type="submit">Κλείδωσε την συμμετοχή μου</button>
               </div>
               <p
                 class="form-note"
@@ -294,8 +320,8 @@
                 Η συμμετοχή σου καταχωρείται μόνο μετά την υποβολή της φόρμας.
               </p>
               <p class="form-legal">
-                Τα πεδία με * είναι υποχρεωτικά. Η κλήρωση θα πραγματοποιηθεί έως 31/06/2026.
-                Δεν απαιτείται αγορά προϊόντος ή υπηρεσίας από το ΦΥΣΙΚΟ ΑΕΡΙΟ.
+                Τα πεδία με * είναι υποχρεωτικά. Η κλήρωση θα πραγματοποιηθεί έως 25/05/2026.
+                Δεν απαιτείται αγορά προϊόντος ή υπηρεσίας από το ΦΥΣΙΚΟ ΑΕΡΙΟ ΕΛΛΗΝΙΚΗ ΕΤΑΙΡΕΙΑ ΕΝΕΡΓΕΙΑΣ.
                 Ισχύουν όροι και προϋποθέσεις.
               </p>
               <div class="aux-footer">
@@ -306,7 +332,7 @@
                   <button class="aux-link" type="button" data-aux-page="privacy">Προσωπικά δεδομένα</button>
                 </nav>
                 <p class="aux-footer-note">
-                  Η ενέργεια πραγματοποιείται από το ΦΥΣΙΚΟ&nbsp;ΑΕΡΙΟ.
+                  Η ενέργεια πραγματοποιείται από το ΦΥΣΙΚΟ&nbsp;ΑΕΡΙΟ ΕΛΛΗΝΙΚΗ ΕΤΑΙΡΕΙΑ ΕΝΕΡΓΕΙΑΣ.
                   Ισχύουν όροι και προϋποθέσεις.
                 </p>
               </div>
@@ -372,8 +398,8 @@
         method: "POST",
         payloadType: "json",
         extraFields: {
-          game: "Hoop Rush",
-          brand: "ΦΥΣΙΚΟ ΑΕΡΙΟ",
+          game: "Shoot & Win",
+          brand: "ΦΥΣΙΚΟ ΑΕΡΙΟ ΕΛΛΗΝΙΚΗ ΕΤΑΙΡΕΙΑ ΕΝΕΡΓΕΙΑΣ",
         },
       };
     </script>

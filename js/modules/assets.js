@@ -3,6 +3,7 @@
 
   function createAssetSystem({
     enableBird = false,
+    enableCrowd = true,
     onAllReady,
     onCrowdSequencesReady,
     onCrowdSequencesError,
@@ -84,7 +85,7 @@
     });
 
     const ballImage = loadImageAsset({
-      primarySrc: "./assets/game/ball/ball.webp",
+      primarySrc: "./assets/game/ball/new_ball.webp",
       priority: "high",
     });
 
@@ -95,7 +96,7 @@
     });
 
     const frontHoopImage = loadImageAsset({
-      primarySrc: "./assets/game/hoop/front-hoop.webp",
+      primarySrc: "./assets/game/hoop/front-hoop.png",
       priority: "high",
       onLoad: () => {
         frontHoopReady = true;
@@ -149,19 +150,21 @@
         }
       }
 
-      crowdSequenceKeys.forEach((key) => {
-        loadImageAsset({
-          primarySrc: `./assets/game/crowd/crowd_${key}.webp`,
-          onLoad: (image) => {
-            crowdSequenceImages[key] = image;
-            settleCrowdSequences();
-          },
-          onFinalError: () => {
-            settleCrowdSequences();
-          },
-          label: `crowd-${key}`,
+      if (enableCrowd) {
+        crowdSequenceKeys.forEach((key) => {
+          loadImageAsset({
+            primarySrc: `./assets/game/crowd/crowd_${key}.webp`,
+            onLoad: (image) => {
+              crowdSequenceImages[key] = image;
+              settleCrowdSequences();
+            },
+            onFinalError: () => {
+              settleCrowdSequences();
+            },
+            label: `crowd-${key}`,
+          });
         });
-      });
+      }
     }
 
     return {

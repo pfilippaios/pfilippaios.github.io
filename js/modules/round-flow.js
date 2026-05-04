@@ -13,11 +13,12 @@
       state.finished = true;
       debug.log(`WIN made=${state.shotsMade}/${constants.WIN_THRESHOLD}`, "evt");
       ui.showOverlay({
-        eyebrow: "Νικητής",
-        title: "Τα κατάφερες",
-        body: "Συμπλήρωσε τη φόρμα για να διεκδικήσεις το δώρο ΦΥΣΙΚΟ ΑΕΡΙΟ.",
-        buttonLabel: "Πάμε στη φόρμα",
+        eyebrow: "",
+        title: `${state.shotsMade}/${constants.WIN_THRESHOLD}! Είσαι μέσα!`,
+        body: "Είσαι ένα βήμα πριν την συμμετοχή σου στην κλήρωση!",
+        buttonLabel: "Διεκδίκησε το δώρο σου",
         showReplay: true,
+        variant: "win",
       });
     }
 
@@ -29,12 +30,11 @@
         timedOut ? "warn" : "err",
       );
       ui.showOverlay({
-        eyebrow: timedOut ? "0:00" : "Τέλος",
-        title: timedOut ? "Ο χρόνος έληξε" : "Δεν τα κατάφερες",
-        body: timedOut
-          ? `Ο χρόνος τελείωσε. Έβαλες ${state.shotsMade}/${constants.WIN_THRESHOLD} καλάθια πριν λήξει το χρονόμετρο.`
-          : `Έβαλες ${state.shotsMade}/${constants.WIN_THRESHOLD} καλάθια. Για την κλήρωση χρειάζονται ${constants.WIN_THRESHOLD}.`,
-        buttonLabel: "Παίξε ξανά",
+        eyebrow: "SHOOT & WIN",
+        title: timedOut ? "Ο χρόνος έληξε" : "Δεν τα κατάφερες αυτή τη φορά",
+        body: "Προσάρμοσε τη γωνία του σουτ και στόχευσε λίγο πάνω από τη στεφάνη.",
+        buttonLabel: "Παίξε ξανά!",
+        variant: "loss",
       });
     }
 

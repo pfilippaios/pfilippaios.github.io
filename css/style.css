@@ -573,17 +573,11 @@ canvas {
 
 .modal-graphic {
   display: block;
-  width: min(100%, 320px);
+  width: 100%;
   height: auto;
   margin: 0 auto 18px;
-  padding: 10px;
-  box-sizing: border-box;
-  background: rgba(18, 10, 32, 0.88);
   border-radius: 10px;
-  border: 2px solid rgba(255, 255, 255, 0.1);
   box-shadow: 0 8px 18px rgba(0, 0, 0, 0.22);
-  image-rendering: pixelated;
-  image-rendering: crisp-edges;
 }
 
 .overlay-card strong,
@@ -595,6 +589,112 @@ canvas {
 
 .copy-accent {
   color: #5ec8d4 !important;
+}
+
+.intro-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  padding: 22px 22px 18px;
+  max-height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(94, 200, 212, 0.45) transparent;
+}
+
+.intro-card::-webkit-scrollbar { width: 6px; }
+.intro-card::-webkit-scrollbar-thumb {
+  background: rgba(94, 200, 212, 0.45);
+  border-radius: 3px;
+}
+
+.intro-card > * { margin: 0; }
+
+.intro-hero-logo {
+  display: block;
+  width: min(48%, 150px);
+  height: auto;
+}
+
+.intro-title {
+  font-size: 20px;
+  line-height: 1.1;
+  color: #fff !important;
+  margin: 0 !important;
+}
+
+.intro-sub {
+  font-size: 13px;
+  line-height: 1.4;
+  color: #fff;
+  margin: 0 !important;
+}
+
+.intro-sub strong { color: #fff; font-weight: 700; }
+
+.prize-section {
+  width: 100%;
+  border-top: 1px solid rgba(94, 200, 212, 0.35);
+  padding-top: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.prize-heading {
+  font-family: 'Bergen Sans', 'Chakra Petch', sans-serif;
+  font-weight: 700;
+  font-size: 16px;
+  letter-spacing: 0.6px;
+  color: #fff;
+  margin: 0;
+}
+
+.prize-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+  align-items: center;
+}
+
+.prize-item {
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+}
+
+.prize-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+  text-align: center;
+  margin: 0;
+  line-height: 1.25;
+}
+
+.prize-image {
+  display: block;
+  width: auto;
+  max-height: 110px;
+  max-width: 72%;
+  filter: drop-shadow(0 8px 16px rgba(78, 180, 197, 0.28));
+  transition: transform 220ms ease, filter 220ms ease;
+  will-change: transform;
+}
+
+.prize-item:hover .prize-image,
+.prize-item:focus-within .prize-image {
+  transform: translateY(-2px) scale(1.04);
+  filter: drop-shadow(0 12px 22px rgba(94, 200, 212, 0.45));
 }
 
 .help-list {
@@ -836,6 +936,76 @@ canvas {
   margin: 0 0 12px;
   letter-spacing: 0.6px;
 }
+
+.eyebrow:empty {
+  display: none;
+}
+
+.overlay-card.is-win {
+  gap: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  text-align: center;
+}
+
+.overlay-card.is-win h2 {
+  color: #0ca250;
+  font-weight: 700;
+  font-size: 28px;
+  line-height: 1.1;
+  letter-spacing: 0.5px;
+  margin: 0;
+}
+
+.overlay-card.is-win p {
+  font-weight: 700;
+  font-size: 14px;
+  line-height: 1.65;
+  color: #d0c8d8;
+  letter-spacing: 0.6px;
+  margin: 0;
+}
+
+.overlay-card.is-win .primary-button { margin-top: 4px; }
+.overlay-card.is-win .secondary-button { margin-top: 0; }
+
+.overlay-card.is-loss {
+  gap: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  text-align: center;
+}
+
+.overlay-card.is-loss .eyebrow {
+  font-family: 'Bergen Sans', 'Press Start 2P', cursive;
+  font-weight: 400;
+  font-size: 20px;
+  color: #ffffff;
+  letter-spacing: 0.8px;
+  margin: 0;
+}
+
+.overlay-card.is-loss h2 {
+  color: #0ca250;
+  font-weight: 700;
+  font-size: 28px;
+  line-height: 1.25;
+  letter-spacing: 0.5px;
+  margin: 0;
+}
+
+.overlay-card.is-loss p {
+  font-weight: 400;
+  font-size: 14px;
+  line-height: 1.65;
+  color: #d0c8d8;
+  letter-spacing: 0;
+  margin: 0;
+}
+
+.overlay-card.is-loss .primary-button { margin-top: 4px; }
 
 .lead-card p.form-note {
   font-size: 11px;

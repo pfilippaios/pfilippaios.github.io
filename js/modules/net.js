@@ -98,38 +98,22 @@
       const img = netFrames[netAnimation.frameIndex] || netFrames[NET_FRAME_INDEX.idle];
       if (!img || !img.complete || !img.naturalWidth) return;
 
-      const NET_WIDTH_MULT = 2.1;
-      const NET_Y_OFFSET = -6;
-      const baseWidth = hoop.rimRadius * NET_WIDTH_MULT;
+      const NET_WIDTH_MULT = 2.75;
+      const NET_Y_OFFSET = -13;
+      const width = hoop.rimRadius * NET_WIDTH_MULT;
       const aspect = img.naturalHeight / img.naturalWidth;
-      const baseHeight = baseWidth * aspect;
+      const height = width * aspect;
 
-      let width = baseWidth;
-      let height = baseHeight;
-      let xOffset = 0;
-
-      if (netAnimation.frameIndex !== NET_FRAME_INDEX.idle) {
-        const liveStretch = ball.active ? clamp(ball.vy * 0.0045, 0, 0.08) : netAnimation.energy * 0.025;
-        height *= 1 + liveStretch;
-
-        if (ball.active) {
-          xOffset += clamp(ball.vx * 0.45, -5, 5);
-        }
-
-        if (netAnimation.frameIndex === NET_FRAME_INDEX.swayLeft) {
-          xOffset -= 2 + netAnimation.energy * 4;
-        } else if (netAnimation.frameIndex === NET_FRAME_INDEX.swayRight) {
-          xOffset += 2 + netAnimation.energy * 4;
-        } else if (netAnimation.frameIndex === NET_FRAME_INDEX.recoil) {
-          xOffset += -netAnimation.lastDirection * (1.5 + netAnimation.energy * 4.5);
-        } else if (!ball.active && netAnimation.energy > 0.08) {
-          xOffset += -netAnimation.lastDirection * netAnimation.energy * 2;
-        }
-      }
-
-      const x = hoop.centerX - width / 2 + xOffset;
+      const x = hoop.centerX - width / 2;
       const y = hoop.rimY + NET_Y_OFFSET;
+
+      const clipTop = hoop.rimY - 4;
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(x - 40, clipTop, width + 80, height + 80);
+      ctx.clip();
       ctx.drawImage(img, x, y, width, height);
+      ctx.restore();
     }
 
     function drawFrontHoop() {

@@ -1,8 +1,9 @@
 /* ─── Configuration & Feature Flags ─── */
 const ENABLE_BIRD = false;
+const ENABLE_CROWD = false;
 const TEST_MODE = false;
 const SLOW_MO = 1.0;
-const DEBUG_ENABLED = false;
+const DEBUG_ENABLED = true;
 
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
@@ -120,6 +121,7 @@ function scheduleCrowdSequenceBuild() {
 /* ─── Image assets ─── */
 const assetSystem = createAssetSystem({
   enableBird: ENABLE_BIRD,
+  enableCrowd: ENABLE_CROWD,
   onAllReady: () => {
     setupCanvas();
     resetBall();
@@ -175,7 +177,7 @@ const AUX_PAGES = {
     title: "Όροι χρήσης",
     body: `
       <h3>Χρήση της εμπειρίας</h3>
-      <p>Το Hoop Rush είναι μια διαδραστική προωθητική εμπειρία του ΦΥΣΙΚΟ&nbsp;ΑΕΡΙΟ. Η χρήση της εφαρμογής προϋποθέτει αποδοχή των όρων που διέπουν τη συμμετοχή και την ορθή χρήση της.</p>
+      <p>Το Shoot &amp; Win είναι μια διαδραστική προωθητική εμπειρία του ΦΥΣΙΚΟ&nbsp;ΑΕΡΙΟ ΕΛΛΗΝΙΚΗ ΕΤΑΙΡΕΙΑ ΕΝΕΡΓΕΙΑΣ. Η χρήση της εφαρμογής προϋποθέτει αποδοχή των όρων που διέπουν τη συμμετοχή και την ορθή χρήση της.</p>
       <ul>
         <li>Η συμμετοχή ολοκληρώνεται μόνο μετά την επιτυχή υποβολή της φόρμας.</li>
         <li>Κάθε συμμετέχων χρησιμοποιεί τα πραγματικά του στοιχεία.</li>
@@ -240,7 +242,7 @@ const assistTooltip = document.getElementById("assistTooltip");
  */
 const hoop = {
   centerX: GAME_WIDTH * 0.5,
-  rimY: 247,
+  rimY: 244,
   rimRadius: 38,
   netHeight: 55,
   backboardWidth: 150,
@@ -394,20 +396,22 @@ if (ENABLE_BIRD) {
     frameSequence: BIRD_FRAME_SEQUENCE,
   });
 }
-crowdSystem = createCrowdSystem({
-  ctx,
-  gameWidth: GAME_WIDTH,
-  gameHeight: GAME_HEIGHT,
-  seatMapUrl: CROWD_SEAT_MAP_URL,
-  seatSourceSize: CROWD_SEAT_SOURCE_SIZE,
-  maxFans: CROWD_MAX_FANS,
-  randomSeed: CROWD_RANDOM_SEED,
-  fallbackSeats: CROWD_FALLBACK_SEATS,
-  clamp,
-  hashString01,
-});
-if (crowdSequenceSourceImages) {
-  scheduleCrowdSequenceBuild();
+if (ENABLE_CROWD) {
+  crowdSystem = createCrowdSystem({
+    ctx,
+    gameWidth: GAME_WIDTH,
+    gameHeight: GAME_HEIGHT,
+    seatMapUrl: CROWD_SEAT_MAP_URL,
+    seatSourceSize: CROWD_SEAT_SOURCE_SIZE,
+    maxFans: CROWD_MAX_FANS,
+    randomSeed: CROWD_RANDOM_SEED,
+    fallbackSeats: CROWD_FALLBACK_SEATS,
+    clamp,
+    hashString01,
+  });
+  if (crowdSequenceSourceImages) {
+    scheduleCrowdSequenceBuild();
+  }
 }
 uiSystem = createUiSystem({
   nodes: {
@@ -575,9 +579,9 @@ function updateHud() {
 }
 
 /* ─── Overlays ─── */
-function showOverlay({ eyebrow, title, body, buttonLabel, showReplay = false }) {
+function showOverlay({ eyebrow, title, body, buttonLabel, showReplay = false, variant = "" }) {
   if (!uiSystem) return;
-  uiSystem.showOverlay({ eyebrow, title, body, buttonLabel, showReplay });
+  uiSystem.showOverlay({ eyebrow, title, body, buttonLabel, showReplay, variant });
 }
 
 function hideOverlay(overlay) {
@@ -830,7 +834,7 @@ function updateBallPhysics() {
   }
 
   /* ── Assist mode steering ── */
-  if (state.assistMode) {
+  if (state.assistMode && !ball.scored) {
     const dxToHoop = hoop.centerX - ball.x;
     const dyToHoop = hoop.rimY - ball.y;
     const distanceToHoop = Math.hypot(dxToHoop, dyToHoop);
@@ -1154,9 +1158,12 @@ function updateBallPhysics() {
      This prevents the ball from being falsely ejected from "entering"
      state due to a momentary horizontal offset before centering corrects it. */
   if ((ball.hoopState === "entering" || ball.hoopState === "scored") && ball.vy > 0) {
-    ball.x += (hoop.centerX - ball.x) * 0.22;
-    ball.vx *= 0.55;
-    ball.vy = Math.min(ball.vy, 4.5);
+    const insideNet = ball.y < hoop.rimY + hoop.netHeight;
+    if (insideNet) {
+      ball.x += (hoop.centerX - ball.x) * 0.22;
+      ball.vx *= 0.55;
+      ball.vy = Math.min(ball.vy, 4.5);
+    }
   }
 
   /* ── Phase 1c: Exit check with velocity-reversal guard ──
@@ -1481,10 +1488,12 @@ if (DEBUG_ENABLED) {
           break;
         case "win":
           showOverlay({
-            eyebrow: "Νικητής",
-            title: "Τα κατάφερες",
-            body: "Συμπλήρωσε τη φόρμα για να διεκδικήσεις το δώρο ΦΥΣΙΚΟ ΑΕΡΙΟ.",
-            buttonLabel: "Πάμε στη φόρμα",
+            eyebrow: "",
+            title: "3/3! Είσαι μέσα!",
+            body: "Είσαι ένα βήμα πριν την συμμετοχή σου στην κλήρωση!",
+            buttonLabel: "Διεκδίκησε το δώρο σου",
+            showReplay: true,
+            variant: "win",
           });
           break;
         case "loss":

@@ -39,8 +39,8 @@
       }
     }
 
-    function showOverlay({ eyebrow, title, body, buttonLabel, showReplay = false }) {
-      messageEyebrow.textContent = eyebrow;
+    function showOverlay({ eyebrow, title, body, buttonLabel, showReplay = false, variant = "" }) {
+      messageEyebrow.textContent = eyebrow || "";
       messageTitle.textContent = title;
       messageBody.textContent = body;
       messageButton.textContent = buttonLabel;
@@ -48,6 +48,11 @@
         replayButton.classList.remove("hidden");
       } else {
         replayButton.classList.add("hidden");
+      }
+      const card = messageOverlay.querySelector(".overlay-card");
+      if (card) {
+        card.classList.remove("is-win", "is-loss");
+        if (variant) card.classList.add(`is-${variant}`);
       }
       messageOverlay.classList.add("visible");
       state.awaitingMessage = true;
