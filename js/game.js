@@ -4,7 +4,7 @@ const ENABLE_CROWD = false;
 const TEST_MODE = false;
 const SLOW_MO = 1.0;
 const IS_LOCAL_ENV = ["localhost", "127.0.0.1", "::1", ""].includes(window.location.hostname);
-const DEBUG_ENABLED = true;
+const DEBUG_ENABLED = false;
 const DEBUG_ALLOWED = DEBUG_ENABLED;
 
 const canvas = document.getElementById("gameCanvas");
