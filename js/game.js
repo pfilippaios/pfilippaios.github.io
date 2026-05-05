@@ -1523,6 +1523,7 @@ function hasActiveRenderWork() {
     ball.active ||
     state.dragging ||
     state.scoreMessage ||
+    (scoreFlowSystem && scoreFlowSystem.isTransitionActive && scoreFlowSystem.isTransitionActive()) ||
     (particlesSystem && particlesSystem.hasParticles && particlesSystem.hasParticles()) ||
     (netSystem && netSystem.isAnimating && netSystem.isAnimating()) ||
     birdSystem
@@ -1549,6 +1550,9 @@ function scheduleNextRender() {
 function stepSimulation(stepNowMs) {
   if (birdSystem) birdSystem.update();
   updateBallPhysics();
+  if (scoreFlowSystem && scoreFlowSystem.updateScoreTransition) {
+    scoreFlowSystem.updateScoreTransition(stepNowMs);
+  }
   updateRoundTimer(stepNowMs);
   updateNetAnimation();
   if (particlesSystem) particlesSystem.update();

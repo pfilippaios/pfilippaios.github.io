@@ -339,7 +339,7 @@
     }
 
     function drawAssistGlow() {
-      if (!state.assistMode || state.finished || !state.started) return;
+      if (!state.assistMode || state.finished || !state.started || ball.scored) return;
       const pulse = (Math.sin(performance.now() / 140) + 1) * 0.5;
       ctx.beginPath();
       ctx.fillStyle = `rgba(12, 162, 80, ${0.06 + pulse * 0.06})`;
