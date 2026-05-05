@@ -136,7 +136,9 @@
           const r = BALL_DISPLAY_RADIUS * pt.scale * (0.3 + t * 0.55);
           const alpha = t * 0.32;
           ctx.globalAlpha = alpha;
-          ctx.drawImage(ballImage, pt.x - r, pt.y - r, r * 2, r * 2);
+          const tx = (pt.x - r) | 0;
+          const ty = (pt.y - r) | 0;
+          ctx.drawImage(ballImage, tx, ty, r * 2, r * 2);
         }
         ctx.globalAlpha = 1;
       }
@@ -197,23 +199,23 @@
       ctx.restore();
     }
 
-    function drawAimGuide() {
-      if (!state.dragging || !state.pointerStart || !state.pointerCurrent) return;
-      const dx = state.pointerCurrent.x - state.pointerStart.x;
-      const dy = state.pointerCurrent.y - state.pointerStart.y;
+    const aimGuidePoints = [];
+    let aimGuideKeyRx = NaN;
+    let aimGuideKeyRy = NaN;
+    let aimGuideKeyAssist = -1;
+    let aimGuideStartX = NaN;
+    let aimGuideStartY = NaN;
+
+    function recomputeAimGuidePoints(dx, dy) {
       const previewLaunch = getCachedAimLaunch(dx, dy);
-
-      ctx.setLineDash([8, 6]);
-      ctx.strokeStyle = "rgba(255, 255, 255, 0.6)";
-      ctx.lineWidth = 2.5;
-      ctx.beginPath();
-
       let px = ball.x;
       let py = ball.y;
       let vx = previewLaunch.vx;
       let vy = previewLaunch.vy;
       let sp = previewLaunch.spin;
-      ctx.moveTo(px, py);
+      const pts = aimGuidePoints;
+      pts.length = 0;
+      pts.push(px, py);
       for (let i = 0; i < 30; i++) {
         vx += sp * 0.002;
         sp *= 0.995;
@@ -226,8 +228,43 @@
         px += vx;
         py += vy + 0.5 * GRAVITY;
         vy += GRAVITY;
-        ctx.lineTo(px, py);
+        pts.push(px, py);
         if (py < 0 || px < 0 || px > GAME_WIDTH || py > GAME_HEIGHT) break;
+      }
+    }
+
+    function drawAimGuide() {
+      if (!state.dragging || !state.pointerStart || !state.pointerCurrent) return;
+      const dx = state.pointerCurrent.x - state.pointerStart.x;
+      const dy = state.pointerCurrent.y - state.pointerStart.y;
+      const rx = Math.round(dx * 2);
+      const ry = Math.round(dy * 2);
+      const assist = state.assistMode ? 1 : 0;
+      if (
+        rx !== aimGuideKeyRx ||
+        ry !== aimGuideKeyRy ||
+        assist !== aimGuideKeyAssist ||
+        ball.x !== aimGuideStartX ||
+        ball.y !== aimGuideStartY
+      ) {
+        aimGuideKeyRx = rx;
+        aimGuideKeyRy = ry;
+        aimGuideKeyAssist = assist;
+        aimGuideStartX = ball.x;
+        aimGuideStartY = ball.y;
+        recomputeAimGuidePoints(dx, dy);
+      }
+
+      const pts = aimGuidePoints;
+      if (pts.length < 4) return;
+
+      ctx.setLineDash([8, 6]);
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.6)";
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(pts[0], pts[1]);
+      for (let i = 2; i < pts.length; i += 2) {
+        ctx.lineTo(pts[i], pts[i + 1]);
       }
       ctx.stroke();
       ctx.setLineDash([]);
@@ -340,13 +377,24 @@
       hooks.drawDebugRim();
     }
 
-    let aimCacheKey = "";
+    let aimCacheRx = NaN;
+    let aimCacheRy = NaN;
+    let aimCacheAssist = -1;
     let aimCacheLaunch = null;
 
     function getCachedAimLaunch(dx, dy) {
-      const key = `${Math.round(dx * 2)}:${Math.round(dy * 2)}:${state.assistMode ? 1 : 0}`;
-      if (key !== aimCacheKey || !aimCacheLaunch) {
-        aimCacheKey = key;
+      const rx = Math.round(dx * 2);
+      const ry = Math.round(dy * 2);
+      const assist = state.assistMode ? 1 : 0;
+      if (
+        rx !== aimCacheRx ||
+        ry !== aimCacheRy ||
+        assist !== aimCacheAssist ||
+        !aimCacheLaunch
+      ) {
+        aimCacheRx = rx;
+        aimCacheRy = ry;
+        aimCacheAssist = assist;
         aimCacheLaunch = getLaunchVector(dx, dy);
       }
       return aimCacheLaunch;

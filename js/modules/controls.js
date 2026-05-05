@@ -31,8 +31,21 @@
 
     let assistInfoShownThisSession = false;
 
+    let cachedRect = canvas.getBoundingClientRect();
+    let rectDirty = false;
+    const markRectDirty = () => { rectDirty = true; };
+    if (typeof window !== "undefined") {
+      window.addEventListener("resize", markRectDirty, { passive: true });
+      window.addEventListener("scroll", markRectDirty, { passive: true });
+      window.addEventListener("orientationchange", markRectDirty, { passive: true });
+    }
+
     function getPointerPosition(event) {
-      const rect = canvas.getBoundingClientRect();
+      if (rectDirty) {
+        cachedRect = canvas.getBoundingClientRect();
+        rectDirty = false;
+      }
+      const rect = cachedRect;
       const scaleX = GAME_WIDTH / rect.width;
       const scaleY = GAME_HEIGHT / rect.height;
       return {
@@ -132,6 +145,7 @@
 
     function handlePointerDown(event) {
       if (!state.started || state.finished || ball.active || state.awaitingMessage || state.justScored) return;
+      rectDirty = true;
       const position = getPointerPosition(event);
       if (!isPointerOnBall(position)) return;
       state.dragging = true;

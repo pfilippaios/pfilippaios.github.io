@@ -311,19 +311,43 @@
       crowdInstances = [];
 
       const seatSource = getCrowdSeatSource();
-      const candidates = seatSource.seats
-        .map((seat) => normalizeCrowdSeat(seat, seatSource.image))
-        .filter(isCrowdSeatDrawable)
-        .sort((a, b) => a.rank - b.rank);
+      const candidates = [];
+      const sourceSeats = seatSource.seats;
+      for (let i = 0; i < sourceSeats.length; i++) {
+        const normalized = normalizeCrowdSeat(sourceSeats[i], seatSource.image);
+        if (isCrowdSeatDrawable(normalized)) candidates.push(normalized);
+      }
+      candidates.sort((a, b) => a.rank - b.rank);
+
       const pickedSeats = [];
+      const pickedBuckets = new Map();
+      const yBucket = (y) => Math.floor(y / 8);
 
-      for (const seat of candidates) {
-        const tooClose = pickedSeats.some((pickedSeat) => {
-          return Math.abs(seat.y - pickedSeat.y) < 8 && Math.abs(seat.x - pickedSeat.x) < 28;
-        });
-
+      for (let i = 0; i < candidates.length; i++) {
+        const seat = candidates[i];
+        const sy = seat.y;
+        const sx = seat.x;
+        const b = yBucket(sy);
+        let tooClose = false;
+        for (let by = b - 1; by <= b + 1 && !tooClose; by++) {
+          const bucket = pickedBuckets.get(by);
+          if (!bucket) continue;
+          for (let j = 0; j < bucket.length; j++) {
+            const p = bucket[j];
+            if (Math.abs(sy - p.y) < 8 && Math.abs(sx - p.x) < 28) {
+              tooClose = true;
+              break;
+            }
+          }
+        }
         if (tooClose) continue;
         pickedSeats.push(seat);
+        let bucket = pickedBuckets.get(b);
+        if (!bucket) {
+          bucket = [];
+          pickedBuckets.set(b, bucket);
+        }
+        bucket.push(seat);
         if (pickedSeats.length >= maxFans) break;
       }
 

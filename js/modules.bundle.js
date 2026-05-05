@@ -38,7 +38,6 @@
     hexToRgba,
   };
 })(window);
-
 (function initHoopRushAssets(global) {
   const HoopRushModules = global.HoopRushModules || (global.HoopRushModules = {});
 
@@ -229,7 +228,6 @@
     createAssetSystem,
   };
 })(window);
-
 (function initHoopRushAudio(global) {
   const HoopRushModules = global.HoopRushModules || (global.HoopRushModules = {});
 
@@ -640,7 +638,6 @@
     createAudioSystem,
   };
 })(window);
-
 (function initHoopRushParticles(global) {
   const HoopRushModules = global.HoopRushModules || (global.HoopRushModules = {});
 
@@ -745,7 +742,6 @@
     createParticlesSystem,
   };
 })(window);
-
 (function initHoopRushBird(global) {
   const HoopRushModules = global.HoopRushModules || (global.HoopRushModules = {});
 
@@ -843,7 +839,6 @@
     createBirdSystem,
   };
 })(window);
-
 (function initHoopRushCrowd(global) {
   const HoopRushModules = global.HoopRushModules || (global.HoopRushModules = {});
 
@@ -1157,19 +1152,43 @@
       crowdInstances = [];
 
       const seatSource = getCrowdSeatSource();
-      const candidates = seatSource.seats
-        .map((seat) => normalizeCrowdSeat(seat, seatSource.image))
-        .filter(isCrowdSeatDrawable)
-        .sort((a, b) => a.rank - b.rank);
+      const candidates = [];
+      const sourceSeats = seatSource.seats;
+      for (let i = 0; i < sourceSeats.length; i++) {
+        const normalized = normalizeCrowdSeat(sourceSeats[i], seatSource.image);
+        if (isCrowdSeatDrawable(normalized)) candidates.push(normalized);
+      }
+      candidates.sort((a, b) => a.rank - b.rank);
+
       const pickedSeats = [];
+      const pickedBuckets = new Map();
+      const yBucket = (y) => Math.floor(y / 8);
 
-      for (const seat of candidates) {
-        const tooClose = pickedSeats.some((pickedSeat) => {
-          return Math.abs(seat.y - pickedSeat.y) < 8 && Math.abs(seat.x - pickedSeat.x) < 28;
-        });
-
+      for (let i = 0; i < candidates.length; i++) {
+        const seat = candidates[i];
+        const sy = seat.y;
+        const sx = seat.x;
+        const b = yBucket(sy);
+        let tooClose = false;
+        for (let by = b - 1; by <= b + 1 && !tooClose; by++) {
+          const bucket = pickedBuckets.get(by);
+          if (!bucket) continue;
+          for (let j = 0; j < bucket.length; j++) {
+            const p = bucket[j];
+            if (Math.abs(sy - p.y) < 8 && Math.abs(sx - p.x) < 28) {
+              tooClose = true;
+              break;
+            }
+          }
+        }
         if (tooClose) continue;
         pickedSeats.push(seat);
+        let bucket = pickedBuckets.get(b);
+        if (!bucket) {
+          bucket = [];
+          pickedBuckets.set(b, bucket);
+        }
+        bucket.push(seat);
         if (pickedSeats.length >= maxFans) break;
       }
 
@@ -1266,7 +1285,6 @@
     createCrowdSystem,
   };
 })(window);
-
 (function initHoopRushUi(global) {
   const HoopRushModules = global.HoopRushModules || (global.HoopRushModules = {});
 
@@ -1356,7 +1374,6 @@
     createUiSystem,
   };
 })(window);
-
 (function initHoopRushDebug(global) {
   const HoopRushModules = global.HoopRushModules || (global.HoopRushModules = {});
 
@@ -1575,7 +1592,6 @@ logLines=${this.fileLog.length} markers=${this.markers.length} lastHit=${lastHit
     createDebugSystem,
   };
 })(window);
-
 (function initHoopRushDebugRim(global) {
   const HoopRushModules = global.HoopRushModules || (global.HoopRushModules = {});
 
@@ -1734,7 +1750,6 @@ logLines=${this.fileLog.length} markers=${this.markers.length} lastHit=${lastHit
     createDebugRimSystem,
   };
 })(window);
-
 (function initHoopRushRoundFlow(global) {
   const HoopRushModules = global.HoopRushModules || (global.HoopRushModules = {});
 
@@ -1868,7 +1883,6 @@ logLines=${this.fileLog.length} markers=${this.markers.length} lastHit=${lastHit
     createRoundFlow,
   };
 })(window);
-
 (function initHoopRushScoreFlow(global) {
   const HoopRushModules = global.HoopRushModules || (global.HoopRushModules = {});
 
@@ -1973,7 +1987,6 @@ logLines=${this.fileLog.length} markers=${this.markers.length} lastHit=${lastHit
     createScoreFlowSystem,
   };
 })(window);
-
 (function initHoopRushSession(global) {
   const HoopRushModules = global.HoopRushModules || (global.HoopRushModules = {});
 
@@ -2111,7 +2124,6 @@ logLines=${this.fileLog.length} markers=${this.markers.length} lastHit=${lastHit
     loadStoredPlayCount,
   };
 })(window);
-
 (function initHoopRushControls(global) {
   const HoopRushModules = global.HoopRushModules || (global.HoopRushModules = {});
 
@@ -2145,8 +2157,21 @@ logLines=${this.fileLog.length} markers=${this.markers.length} lastHit=${lastHit
 
     let assistInfoShownThisSession = false;
 
+    let cachedRect = canvas.getBoundingClientRect();
+    let rectDirty = false;
+    const markRectDirty = () => { rectDirty = true; };
+    if (typeof window !== "undefined") {
+      window.addEventListener("resize", markRectDirty, { passive: true });
+      window.addEventListener("scroll", markRectDirty, { passive: true });
+      window.addEventListener("orientationchange", markRectDirty, { passive: true });
+    }
+
     function getPointerPosition(event) {
-      const rect = canvas.getBoundingClientRect();
+      if (rectDirty) {
+        cachedRect = canvas.getBoundingClientRect();
+        rectDirty = false;
+      }
+      const rect = cachedRect;
       const scaleX = GAME_WIDTH / rect.width;
       const scaleY = GAME_HEIGHT / rect.height;
       return {
@@ -2246,6 +2271,7 @@ logLines=${this.fileLog.length} markers=${this.markers.length} lastHit=${lastHit
 
     function handlePointerDown(event) {
       if (!state.started || state.finished || ball.active || state.awaitingMessage || state.justScored) return;
+      rectDirty = true;
       const position = getPointerPosition(event);
       if (!isPointerOnBall(position)) return;
       state.dragging = true;
@@ -2342,7 +2368,6 @@ logLines=${this.fileLog.length} markers=${this.markers.length} lastHit=${lastHit
     createControlsSystem,
   };
 })(window);
-
 (function initHoopRushNet(global) {
   const HoopRushModules = global.HoopRushModules || (global.HoopRushModules = {});
 
@@ -2491,7 +2516,6 @@ logLines=${this.fileLog.length} markers=${this.markers.length} lastHit=${lastHit
     createNetSystem,
   };
 })(window);
-
 (function initHoopRushRender(global) {
   const HoopRushModules = global.HoopRushModules || (global.HoopRushModules = {});
 
@@ -2630,7 +2654,9 @@ logLines=${this.fileLog.length} markers=${this.markers.length} lastHit=${lastHit
           const r = BALL_DISPLAY_RADIUS * pt.scale * (0.3 + t * 0.55);
           const alpha = t * 0.32;
           ctx.globalAlpha = alpha;
-          ctx.drawImage(ballImage, pt.x - r, pt.y - r, r * 2, r * 2);
+          const tx = (pt.x - r) | 0;
+          const ty = (pt.y - r) | 0;
+          ctx.drawImage(ballImage, tx, ty, r * 2, r * 2);
         }
         ctx.globalAlpha = 1;
       }
@@ -2691,23 +2717,23 @@ logLines=${this.fileLog.length} markers=${this.markers.length} lastHit=${lastHit
       ctx.restore();
     }
 
-    function drawAimGuide() {
-      if (!state.dragging || !state.pointerStart || !state.pointerCurrent) return;
-      const dx = state.pointerCurrent.x - state.pointerStart.x;
-      const dy = state.pointerCurrent.y - state.pointerStart.y;
+    const aimGuidePoints = [];
+    let aimGuideKeyRx = NaN;
+    let aimGuideKeyRy = NaN;
+    let aimGuideKeyAssist = -1;
+    let aimGuideStartX = NaN;
+    let aimGuideStartY = NaN;
+
+    function recomputeAimGuidePoints(dx, dy) {
       const previewLaunch = getCachedAimLaunch(dx, dy);
-
-      ctx.setLineDash([8, 6]);
-      ctx.strokeStyle = "rgba(255, 255, 255, 0.6)";
-      ctx.lineWidth = 2.5;
-      ctx.beginPath();
-
       let px = ball.x;
       let py = ball.y;
       let vx = previewLaunch.vx;
       let vy = previewLaunch.vy;
       let sp = previewLaunch.spin;
-      ctx.moveTo(px, py);
+      const pts = aimGuidePoints;
+      pts.length = 0;
+      pts.push(px, py);
       for (let i = 0; i < 30; i++) {
         vx += sp * 0.002;
         sp *= 0.995;
@@ -2720,8 +2746,43 @@ logLines=${this.fileLog.length} markers=${this.markers.length} lastHit=${lastHit
         px += vx;
         py += vy + 0.5 * GRAVITY;
         vy += GRAVITY;
-        ctx.lineTo(px, py);
+        pts.push(px, py);
         if (py < 0 || px < 0 || px > GAME_WIDTH || py > GAME_HEIGHT) break;
+      }
+    }
+
+    function drawAimGuide() {
+      if (!state.dragging || !state.pointerStart || !state.pointerCurrent) return;
+      const dx = state.pointerCurrent.x - state.pointerStart.x;
+      const dy = state.pointerCurrent.y - state.pointerStart.y;
+      const rx = Math.round(dx * 2);
+      const ry = Math.round(dy * 2);
+      const assist = state.assistMode ? 1 : 0;
+      if (
+        rx !== aimGuideKeyRx ||
+        ry !== aimGuideKeyRy ||
+        assist !== aimGuideKeyAssist ||
+        ball.x !== aimGuideStartX ||
+        ball.y !== aimGuideStartY
+      ) {
+        aimGuideKeyRx = rx;
+        aimGuideKeyRy = ry;
+        aimGuideKeyAssist = assist;
+        aimGuideStartX = ball.x;
+        aimGuideStartY = ball.y;
+        recomputeAimGuidePoints(dx, dy);
+      }
+
+      const pts = aimGuidePoints;
+      if (pts.length < 4) return;
+
+      ctx.setLineDash([8, 6]);
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.6)";
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(pts[0], pts[1]);
+      for (let i = 2; i < pts.length; i += 2) {
+        ctx.lineTo(pts[i], pts[i + 1]);
       }
       ctx.stroke();
       ctx.setLineDash([]);
@@ -2834,13 +2895,24 @@ logLines=${this.fileLog.length} markers=${this.markers.length} lastHit=${lastHit
       hooks.drawDebugRim();
     }
 
-    let aimCacheKey = "";
+    let aimCacheRx = NaN;
+    let aimCacheRy = NaN;
+    let aimCacheAssist = -1;
     let aimCacheLaunch = null;
 
     function getCachedAimLaunch(dx, dy) {
-      const key = `${Math.round(dx * 2)}:${Math.round(dy * 2)}:${state.assistMode ? 1 : 0}`;
-      if (key !== aimCacheKey || !aimCacheLaunch) {
-        aimCacheKey = key;
+      const rx = Math.round(dx * 2);
+      const ry = Math.round(dy * 2);
+      const assist = state.assistMode ? 1 : 0;
+      if (
+        rx !== aimCacheRx ||
+        ry !== aimCacheRy ||
+        assist !== aimCacheAssist ||
+        !aimCacheLaunch
+      ) {
+        aimCacheRx = rx;
+        aimCacheRy = ry;
+        aimCacheAssist = assist;
         aimCacheLaunch = getLaunchVector(dx, dy);
       }
       return aimCacheLaunch;
@@ -2864,7 +2936,6 @@ logLines=${this.fileLog.length} markers=${this.markers.length} lastHit=${lastHit
     createRenderSystem,
   };
 })(window);
-
 (function initHoopRushLeadForm(global) {
   const HoopRushModules = global.HoopRushModules || (global.HoopRushModules = {});
 
@@ -3041,7 +3112,6 @@ logLines=${this.fileLog.length} markers=${this.markers.length} lastHit=${lastHit
 
   initLeadForm();
 })(window);
-
 (function initHoopRushContestTerms(global) {
   const rawTerms = `
 Όροι & προϋποθέσεις Διαγωνισμού
