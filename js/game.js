@@ -6,6 +6,7 @@ const SLOW_MO = 1.0;
 const IS_LOCAL_ENV = ["localhost", "127.0.0.1", "::1", ""].includes(window.location.hostname);
 const DEBUG_ENABLED = false;
 const DEBUG_ALLOWED = DEBUG_ENABLED;
+const FPS_ENABLED = new URLSearchParams(window.location.search).get("fps") === "1";
 
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
@@ -14,6 +15,7 @@ const triesLeftNode = document.getElementById("triesLeft");
 const madeValueNode = document.getElementById("madeValue");
 const timerValueNode = document.getElementById("timerValue");
 const playCountValueNode = document.getElementById("playCountValue");
+const fpsIndicator = document.getElementById("fpsIndicator");
 const startOverlay = document.getElementById("startOverlay");
 const introCard = startOverlay ? startOverlay.querySelector(".intro-card") : null;
 const introScrollCue = document.getElementById("introScrollCue");
@@ -1510,6 +1512,13 @@ let simulationClockMs = null;
 let simulationAccumulatorMs = 0;
 let renderDelayTimer = 0;
 let renderDirty = true;
+let fpsSampleStartMs = 0;
+let fpsFrameCount = 0;
+let fpsLastValue = 0;
+
+if (fpsIndicator) {
+  fpsIndicator.hidden = !FPS_ENABLED;
+}
 
 function hasActiveRenderWork() {
   return Boolean(
@@ -1554,7 +1563,27 @@ function stepSimulation(stepNowMs) {
   if (particlesSystem) particlesSystem.update();
 }
 
+function updateFpsIndicator(now) {
+  if (!FPS_ENABLED || !fpsIndicator) return;
+  if (!fpsSampleStartMs) {
+    fpsSampleStartMs = now;
+    fpsFrameCount = 0;
+    return;
+  }
+
+  fpsFrameCount += 1;
+  const elapsed = now - fpsSampleStartMs;
+  if (elapsed < 500) return;
+
+  fpsLastValue = Math.round((fpsFrameCount * 1000) / elapsed);
+  fpsIndicator.textContent = `FPS ${fpsLastValue}`;
+  fpsSampleStartMs = now;
+  fpsFrameCount = 0;
+}
+
 function render(now = performance.now()) {
+  updateFpsIndicator(now);
+
   if (lastFrameTimeMs === null) {
     lastFrameTimeMs = now;
     simulationClockMs = now;
