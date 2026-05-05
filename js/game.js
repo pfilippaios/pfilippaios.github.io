@@ -68,7 +68,6 @@ if (
   !createAudioSystem ||
   !createParticlesSystem ||
   !createBirdSystem ||
-  !createCrowdSystem ||
   !createUiSystem ||
   !createSessionSystem ||
   !loadInitialPlayCount ||
@@ -196,6 +195,12 @@ const {
 } = assetSystem;
 
 /* ─── Debug panel ─── */
+if (DEBUG_ALLOWED) {
+  const debugTpl = document.getElementById("debug-panel-tpl");
+  if (debugTpl && debugTpl.content) {
+    document.body.appendChild(debugTpl.content.cloneNode(true));
+  }
+}
 const debugPanel = document.getElementById("debugPanel");
 const debugStateNode = document.getElementById("debugState");
 const debugLogNode = document.getElementById("debugLog");
@@ -204,10 +209,6 @@ const debugClearBtn = document.getElementById("debugClear");
 const debugCopyBtn = document.getElementById("debugCopy");
 const debugDownloadBtn = document.getElementById("debugDownload");
 const debugToggleBtn = document.getElementById("debugToggle");
-
-if (!DEBUG_ALLOWED && debugPanel) {
-  debugPanel.remove();
-}
 
 /* ─── Constants ─── */
 const _isTouchDevice = ("ontouchstart" in window || navigator.maxTouchPoints > 0);
@@ -227,19 +228,15 @@ const MAX_FRAME_DELTA_MS = 250;
 const MAX_STEPS_PER_RENDER = 5;
 const IDLE_RENDER_INTERVAL_MS = 250;
 
+const CONTEST_TERMS_TEMPLATE_ID = "contest-terms";
+const CONTEST_TERMS_PAGE = {
+  title: "Όροι Διαγωνισμού",
+  bodyTemplateId: CONTEST_TERMS_TEMPLATE_ID,
+};
 const AUX_PAGES = {
-  terms: {
-    title: "Όροι Διαγωνισμού",
-    body: window.HoopRushContestTermsHtml || "",
-  },
-  contest: {
-    title: "Όροι Διαγωνισμού",
-    body: window.HoopRushContestTermsHtml || "",
-  },
-  privacy: {
-    title: "Όροι Διαγωνισμού",
-    body: window.HoopRushContestTermsHtml || "",
-  },
+  terms: CONTEST_TERMS_PAGE,
+  contest: CONTEST_TERMS_PAGE,
+  privacy: CONTEST_TERMS_PAGE,
 };
 
 /* ─── State ─── */
@@ -323,7 +320,7 @@ const BIRD_FLIGHT_BAND = {
 const CROWD_SEAT_MAP_URL = "./js/seats/basketball_seat_map.json";
 const CROWD_SEAT_SOURCE_SIZE = { width: 1142, height: 2048 };
 const CROWD_MAX_FANS = 18;
-const CROWD_RANDOM_SEED = Math.floor(Math.random() * 100000);
+const CROWD_RANDOM_SEED = ENABLE_CROWD ? Math.floor(Math.random() * 100000) : 0;
 const CROWD_FALLBACK_SEATS = [
   { id: "seat-001", row: 1, cx: 16, cy: 512.5, scale: 0.875, area: 285 },
   { id: "seat-005", row: 2, cx: 8.5, cy: 546.5, scale: 0.875, area: 267 },
@@ -425,6 +422,7 @@ function unlockIntroMusicOnInteraction() {
   if (!audioSystem) return;
   audioSystem.primeEffects();
   audioSystem.startMusic({ silentFailure: true });
+  if (startDeferredAssetLoads) startDeferredAssetLoads();
   removeIntroMusicUnlockListeners();
 }
 

@@ -62,11 +62,29 @@
       overlay.classList.remove("visible");
     }
 
+    const auxBodyCache = new Map();
+
+    function resolveAuxBody(page) {
+      if (typeof page.body === "string") return page.body;
+      if (page.bodyTemplateId) {
+        if (auxBodyCache.has(page.bodyTemplateId)) return auxBodyCache.get(page.bodyTemplateId);
+        const tpl = document.getElementById(page.bodyTemplateId);
+        const html = tpl && tpl.content
+          ? Array.from(tpl.content.childNodes)
+              .map((n) => (n.outerHTML !== undefined ? n.outerHTML : n.textContent))
+              .join("")
+          : (tpl ? tpl.innerHTML : "");
+        auxBodyCache.set(page.bodyTemplateId, html);
+        return html;
+      }
+      return "";
+    }
+
     function openAuxPage(pageKey) {
       const page = auxPages[pageKey];
       if (!page) return;
       auxOverlayTitle.textContent = page.title;
-      auxOverlayContent.innerHTML = page.body;
+      auxOverlayContent.innerHTML = resolveAuxBody(page);
       auxOverlay.classList.add("visible");
     }
 

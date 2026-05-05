@@ -120,7 +120,7 @@
     const config = normalizeConfig(form);
 
     if (!config.endpoint) {
-      setFeedback(feedbackNode, config.missingEndpointMessage, "error");
+      setFeedback(feedbackNode, "", "idle");
       return;
     }
 

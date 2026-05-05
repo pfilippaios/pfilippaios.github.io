@@ -1,6 +1,6 @@
 @font-face {
   font-family: 'Bergen Sans';
-  src: url('../fonts/BergenSans-Regular.otf') format('opentype');
+  src: url('../fonts/BergenSans-Regular.woff2') format('woff2');
   font-weight: 400;
   font-style: normal;
   font-display: swap;
@@ -8,7 +8,7 @@
 
 @font-face {
   font-family: 'Bergen Sans';
-  src: url('../fonts/BergenSans-SemiBold.otf') format('opentype');
+  src: url('../fonts/BergenSans-SemiBold.woff2') format('woff2');
   font-weight: 600;
   font-style: normal;
   font-display: swap;
@@ -1305,6 +1305,12 @@ canvas {
 
 .debug-modals button:hover {
   background: #2a5a3a;
+}
+
+.debug-modals button.debug-hide-all {
+  background: #3a1a1a;
+  border-color: #6a2a2a;
+  color: #ff9d9d;
 }
 
 #debugState {

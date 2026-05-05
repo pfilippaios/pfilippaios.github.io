@@ -79,8 +79,8 @@
     const bgMusicLoop = bgMusicSrc
       ? createAudioElement(bgMusicSrc, { loop: true, volume: 0, preload: "none" })
       : null;
-    const netPool = createPool(netSrc, 1, netVolume, { preload: "none" });
-    const dropPool = createPool(dropSrc, 1, dropVolume, { preload: "none" });
+    const netPool = createPool(netSrc, 1, netVolume, { preload: "auto" });
+    const dropPool = createPool(dropSrc, 1, dropVolume, { preload: "auto" });
     const hitPools = hitSources.map((src) => createPool(src, 1, hitVolume, { preload: "none" }));
     const loopStates = {
       crowd: crowdLoop

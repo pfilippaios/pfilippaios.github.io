@@ -111,14 +111,14 @@
       },
     });
 
-    function loadAsync(src, label) {
+    function loadAsync(src, label, priority = "low") {
       return new Promise((resolve) => {
         loadImageAsset({
           primarySrc: src,
           onLoad: (img) => resolve(img),
           onFinalError: (img) => resolve(img),
           label: label,
-          priority: "low",
+          priority,
         });
       });
     }
@@ -135,7 +135,7 @@
       );
 
       const netFrameLoads = netFrameAssets.slice(1).map(({ key, src }, offset) =>
-        loadAsync(src, `net-frame-${key}`).then((img) => {
+        loadAsync(src, `net-frame-${key}`, "high").then((img) => {
           netFrames[offset + 1] = img;
         })
       );
