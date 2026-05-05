@@ -228,7 +228,6 @@ const TARGET_FPS = 60;
 const FIXED_STEP_MS = 1000 / TARGET_FPS;
 const MAX_FRAME_DELTA_MS = 250;
 const MAX_STEPS_PER_RENDER = 5;
-const IDLE_RENDER_INTERVAL_MS = 250;
 
 const CONTEST_TERMS_TEMPLATE_ID = "contest-terms";
 const CONTEST_TERMS_PAGE = {
@@ -1510,7 +1509,6 @@ function drawScene() {
 let lastFrameTimeMs = null;
 let simulationClockMs = null;
 let simulationAccumulatorMs = 0;
-let renderDelayTimer = 0;
 let renderDirty = true;
 let fpsSampleStartMs = 0;
 let fpsFrameCount = 0;
@@ -1531,27 +1529,20 @@ function hasActiveRenderWork() {
   );
 }
 
-function shouldTickIdleTimer() {
-  return state.started && !state.finished;
+function shouldContinueRenderLoop() {
+  return FPS_ENABLED || (state.started && !state.finished);
 }
 
 function requestRender() {
   renderDirty = true;
-  if (state.animationFrame || renderDelayTimer) return;
+  if (state.animationFrame) return;
   state.animationFrame = window.requestAnimationFrame(render);
 }
 
 function scheduleNextRender() {
   state.animationFrame = null;
-  if (hasActiveRenderWork()) {
+  if (hasActiveRenderWork() || shouldContinueRenderLoop()) {
     state.animationFrame = window.requestAnimationFrame(render);
-    return;
-  }
-  if (shouldTickIdleTimer()) {
-    renderDelayTimer = window.setTimeout(() => {
-      renderDelayTimer = 0;
-      state.animationFrame = window.requestAnimationFrame(render);
-    }, IDLE_RENDER_INTERVAL_MS);
   }
 }
 
@@ -1590,7 +1581,7 @@ function render(now = performance.now()) {
   }
 
   const activeWork = hasActiveRenderWork();
-  if (!activeWork && shouldTickIdleTimer()) {
+  if (!activeWork && shouldContinueRenderLoop()) {
     lastFrameTimeMs = now;
     simulationClockMs = now;
     simulationAccumulatorMs = 0;
