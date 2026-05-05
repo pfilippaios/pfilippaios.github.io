@@ -73,7 +73,9 @@
       return audio;
     }
 
-    const crowdLoop = createAudioElement(crowdSrc, { loop: false, volume: 0, preload: "none" });
+    const crowdLoop = crowdSrc
+      ? createAudioElement(crowdSrc, { loop: false, volume: 0, preload: "none" })
+      : null;
     const bgMusicLoop = bgMusicSrc
       ? createAudioElement(bgMusicSrc, { loop: true, volume: 0, preload: "none" })
       : null;
@@ -81,18 +83,20 @@
     const dropPool = createPool(dropSrc, 1, dropVolume, { preload: "none" });
     const hitPools = hitSources.map((src) => createPool(src, 1, hitVolume, { preload: "none" }));
     const loopStates = {
-      crowd: {
-        audio: syncMuted(crowdLoop),
-        label: "crowd",
-        targetVolume: crowdVolume,
-        fadeMs: crowdFadeMs,
-        fadeFrame: 0,
-        segmentFrame: 0,
-        segmentStartMs: 0,
-        segmentEndMs: crowdSegmentEndMs,
-        segmentFadeOutMs: crowdFadeMs,
-        started: false,
-      },
+      crowd: crowdLoop
+        ? {
+            audio: syncMuted(crowdLoop),
+            label: "crowd",
+            targetVolume: crowdVolume,
+            fadeMs: crowdFadeMs,
+            fadeFrame: 0,
+            segmentFrame: 0,
+            segmentStartMs: 0,
+            segmentEndMs: crowdSegmentEndMs,
+            segmentFadeOutMs: crowdFadeMs,
+            started: false,
+          }
+        : null,
       bgMusic: bgMusicLoop
         ? {
             audio: syncMuted(bgMusicLoop),

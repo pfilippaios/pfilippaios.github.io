@@ -169,6 +169,8 @@
       ball.vz = getInitialVzForTarget(targetZ, framesToDepth);
       ball.active = true;
       ball.trail = [];
+      ball.trailIndex = 0;
+      ball.trailCount = 0;
       clearDragState();
       state.attemptsUsed += 1;
       updateHud();

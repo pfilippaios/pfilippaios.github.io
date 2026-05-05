@@ -28,11 +28,13 @@
       HOOP_Z,
       NET_Z_HALF = 14,
       Z_TO_PX = 3.93,
+      DRAW_STATIC_BACKGROUND = true,
     } = constants;
 
     let bgCache = null;
 
     function drawBackground() {
+      if (!DRAW_STATIC_BACKGROUND) return;
       if (!bgCache && bgImage.complete && bgImage.naturalWidth) {
         try {
           const cw = ctx.canvas.width;
@@ -123,11 +125,14 @@
 
     function drawBallShadowAndTrail() {
       if (ball.opacity <= 0) return;
-      if (!isBallAtHoopRenderDepth() && ball.trail.length > 1) {
-        const len = ball.trail.length;
+      const trailCount = ball.trailCount || ball.trail.length;
+      if (!isBallAtHoopRenderDepth() && trailCount > 1) {
+        const len = trailCount;
+        const startIndex = ball.trailCount ? ball.trailIndex || 0 : 0;
         for (let i = 0; i < len - 1; i++) {
           const t = (i + 1) / len;
-          const pt = ball.trail[i];
+          const pt = ball.trail[(startIndex + i) % len];
+          if (!pt) continue;
           const r = BALL_DISPLAY_RADIUS * pt.scale * (0.3 + t * 0.55);
           const alpha = t * 0.32;
           ctx.globalAlpha = alpha;
@@ -196,7 +201,7 @@
       if (!state.dragging || !state.pointerStart || !state.pointerCurrent) return;
       const dx = state.pointerCurrent.x - state.pointerStart.x;
       const dy = state.pointerCurrent.y - state.pointerStart.y;
-      const previewLaunch = getLaunchVector(dx, dy);
+      const previewLaunch = getCachedAimLaunch(dx, dy);
 
       ctx.setLineDash([8, 6]);
       ctx.strokeStyle = "rgba(255, 255, 255, 0.6)";
@@ -333,6 +338,18 @@
       drawScoreMessage();
       drawAimGuide();
       hooks.drawDebugRim();
+    }
+
+    let aimCacheKey = "";
+    let aimCacheLaunch = null;
+
+    function getCachedAimLaunch(dx, dy) {
+      const key = `${Math.round(dx * 2)}:${Math.round(dy * 2)}:${state.assistMode ? 1 : 0}`;
+      if (key !== aimCacheKey || !aimCacheLaunch) {
+        aimCacheKey = key;
+        aimCacheLaunch = getLaunchVector(dx, dy);
+      }
+      return aimCacheLaunch;
     }
 
     return {

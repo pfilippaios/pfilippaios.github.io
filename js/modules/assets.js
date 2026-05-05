@@ -30,7 +30,7 @@
     const ballSpinFrames = Array.from({ length: ballSpinFrameCount }, () => null);
     const netFrames = Array.from({ length: netFrameAssets.length }, () => null);
     const birdFrames = Array.from({ length: birdFrameCount }, () => null);
-    const criticalAssetCount = 4;
+    const criticalAssetCount = 3;
 
     function scheduleBackgroundWork(callback) {
       if (typeof global.requestIdleCallback === "function") {
@@ -89,10 +89,7 @@
       return image;
     }
 
-    const bgImage = loadImageAsset({
-      primarySrc: "./assets/game/background/bg.webp",
-      priority: "high",
-    });
+    const bgImage = prepareImageElement(new Image(), "high");
 
     const ballImage = loadImageAsset({
       primarySrc: "./assets/game/ball/new_ball.webp",

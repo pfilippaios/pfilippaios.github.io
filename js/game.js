@@ -225,6 +225,7 @@ const TARGET_FPS = 60;
 const FIXED_STEP_MS = 1000 / TARGET_FPS;
 const MAX_FRAME_DELTA_MS = 250;
 const MAX_STEPS_PER_RENDER = 5;
+const IDLE_RENDER_INTERVAL_MS = 250;
 
 const AUX_PAGES = {
   terms: {
@@ -289,6 +290,22 @@ const RIM_Z_HALF = 10;                 // Rim collision tolerance (±10 around H
 const NET_Z_HALF = 14;
 const HOOP_Z_LOCK_STRENGTH = 0.18;     // Pull valid entries back to rim depth instead of ejecting them
 const HOOP_Z_VELOCITY_DAMPING = 0.72;
+const HOOP_GEOMETRY = {
+  hoopZPx: HOOP_Z * Z_TO_PX,
+  leftRimX: hoop.centerX - hoop.rimRadius,
+  rightRimX: hoop.centerX + hoop.rimRadius,
+  entryInset: 4,
+  capturePadding: BALL_DISPLAY_RADIUS * 0.28,
+  backboardLeft: hoop.centerX - hoop.backboardWidth * 0.5,
+  backboardRight: hoop.centerX + hoop.backboardWidth * 0.5,
+  backboardTop: hoop.rimY - 110,
+};
+HOOP_GEOMETRY.innerLeftRimX = HOOP_GEOMETRY.leftRimX + HOOP_GEOMETRY.entryInset;
+HOOP_GEOMETRY.innerRightRimX = HOOP_GEOMETRY.rightRimX - HOOP_GEOMETRY.entryInset;
+HOOP_GEOMETRY.captureLeftX = HOOP_GEOMETRY.innerLeftRimX - HOOP_GEOMETRY.capturePadding;
+HOOP_GEOMETRY.captureRightX = HOOP_GEOMETRY.innerRightRimX + HOOP_GEOMETRY.capturePadding;
+HOOP_GEOMETRY.backboardBottom = HOOP_GEOMETRY.backboardTop + 55;
+HOOP_GEOMETRY.backboardZPx = HOOP_GEOMETRY.hoopZPx + hoop.rimRadius + 12;
 const BIRD_ASPECT_RATIO = 258 / 230;
 const BIRD_FRAME_SEQUENCE = [0, 1, 2, 3, 4, 5, 6, 7];
 const BIRD_FLIGHT_BAND = {
@@ -341,6 +358,8 @@ const ball = {
   angle: 0,
   active: false,
   trail: [],
+  trailIndex: 0,
+  trailCount: 0,
   scored: false,
   hoopState: "outside",
   validEntry: false,
@@ -375,7 +394,7 @@ debug = DEBUG_ALLOWED && createDebugSystem ? createDebugSystem({
 
 audioSystem = createAudioSystem({
   bgMusicSrc: "./assets/audio/bg_music.mp3",
-  crowdSrc: "./assets/audio/crowd.mp3",
+  crowdSrc: "",
   netSrc: "./assets/audio/net.mp3",
   dropSrc: "./assets/audio/drop.mp3",
   hitSources: [
@@ -595,6 +614,7 @@ renderSystem = createRenderSystem({
     HOOP_Z,
     NET_Z_HALF,
     Z_TO_PX,
+    DRAW_STATIC_BACKGROUND: false,
   },
   clamp,
   getLaunchVector,
@@ -631,11 +651,13 @@ function updateHud() {
 function showOverlay({ eyebrow, title, body, buttonLabel, showReplay = false, variant = "" }) {
   if (!uiSystem) return;
   uiSystem.showOverlay({ eyebrow, title, body, buttonLabel, showReplay, variant });
+  requestRender();
 }
 
 function hideOverlay(overlay) {
   if (!uiSystem) return;
   uiSystem.hideOverlay(overlay);
+  requestRender();
 }
 
 function openAuxPage(pageKey) {
@@ -663,12 +685,15 @@ function scheduleDeferredImageLoad(root) {
 function resetBall() {
   if (!sessionSystem) return;
   sessionSystem.resetBall();
+  ball.trailIndex = 0;
+  ball.trailCount = 0;
+  requestRender();
 }
 
 function resetGame() {
-  if (audioSystem) audioSystem.stopCrowd();
   if (!sessionSystem) return;
   sessionSystem.resetGame();
+  requestRender();
 }
 
 function beginGame() {
@@ -676,6 +701,7 @@ function beginGame() {
   if (audioSystem) audioSystem.startAmbient();
   sessionSystem.beginGame();
   if (startDeferredAssetLoads) startDeferredAssetLoads();
+  requestRender();
 }
 
 /* ─── Pointer helpers ─── */
@@ -754,11 +780,13 @@ function getPredictedApexY(y, vy) {
 function handlePointerDown(event) {
   if (!controlsSystem) return;
   controlsSystem.handlePointerDown(event);
+  requestRender();
 }
 
 function handlePointerMove(event) {
   if (!controlsSystem) return;
   controlsSystem.handlePointerMove(event);
+  requestRender();
 }
 
 function launchBall() {
@@ -769,6 +797,7 @@ function launchBall() {
 function handlePointerUp() {
   if (!controlsSystem) return;
   controlsSystem.handlePointerUp();
+  requestRender();
 }
 
 /* ─── Game logic ─── */
@@ -786,6 +815,7 @@ function toggleAssist() {
   if (!controlsSystem) return;
   loadDeferredImages(assistInfoOverlay);
   controlsSystem.toggleAssist();
+  requestRender();
 }
 
 function updateMuteButton() {
@@ -806,6 +836,7 @@ function toggleMute() {
 function dismissAssistTooltip() {
   if (!controlsSystem) return;
   controlsSystem.dismissAssistTooltip();
+  requestRender();
 }
 
 function updateRoundTimer(now = performance.now()) {
@@ -868,8 +899,8 @@ function updateBallPhysics() {
 
   ball.flightTime = (ball.flightTime || 0) + 1;
 
-  // Log ball state every 10 frames
-  if (ball.flightTime % 10 === 1) {
+  // Log ball state every 10 frames only while the debug panel is active.
+  if (debug.isEnabled() && ball.flightTime % 10 === 1) {
     debug.log(`frame=${ball.flightTime} x=${ball.x.toFixed(1)} y=${ball.y.toFixed(1)} z=${ball.zDepth.toFixed(1)} vx=${ball.vx.toFixed(2)} vy=${ball.vy.toFixed(2)} vz=${ball.vz.toFixed(2)} hoop=${ball.hoopState} spin=${ball.spin.toFixed(3)}`, "info");
   }
 
@@ -953,23 +984,23 @@ function updateBallPhysics() {
 
   /* ── Trail recording ── */
   const MAX_TRAIL = 10;
-  ball.trail.push({ x: ball.x, y: ball.y, scale: getDynamicScale(), angle: ball.angle });
-  if (ball.trail.length > MAX_TRAIL) ball.trail.shift();
+  let trailPoint = ball.trail[ball.trailIndex];
+  if (!trailPoint) {
+    trailPoint = { x: 0, y: 0, scale: 1, angle: 0 };
+    ball.trail[ball.trailIndex] = trailPoint;
+  }
+  trailPoint.x = ball.x;
+  trailPoint.y = ball.y;
+  trailPoint.scale = getDynamicScale();
+  trailPoint.angle = ball.angle;
+  ball.trailIndex = (ball.trailIndex + 1) % MAX_TRAIL;
+  ball.trailCount = Math.min((ball.trailCount || 0) + 1, MAX_TRAIL);
 
   /* ── Collision geometry ── */
   const effR = BALL_COLLISION_RADIUS; // Fixed radius (Phase 4a)
 
-  const leftRimX = hoop.centerX - hoop.rimRadius;
-  const rightRimX = hoop.centerX + hoop.rimRadius;
   const rimY = hoop.rimY;
-  const entryInset = 4;
-  const innerLeftRimX = leftRimX + entryInset;
-  const innerRightRimX = rightRimX - entryInset;
-
-  /* Fixed capture padding — not depth-dependent (Phase 1d) */
-  const capturePadding = BALL_DISPLAY_RADIUS * 0.28;
-  const captureLeftX = innerLeftRimX - capturePadding;
-  const captureRightX = innerRightRimX + capturePadding;
+  const { captureLeftX, captureRightX } = HOOP_GEOMETRY;
   const ballBottomAtRimCheck = ball.y + effR;
   const prevBallBottomAtRimCheck = ball.prevY + effR;
   if (ballBottomAtRimCheck <= rimY) {
@@ -1030,7 +1061,7 @@ function updateBallPhysics() {
   /* ── True 3D Torus Collision ──
      The rim is treated as a mathematically perfect 3D ring at y = hoop.rimY.
      This replaces the 24-point 2D ellipse approximation. */
-  const hoopZPx = HOOP_Z * Z_TO_PX;
+  const hoopZPx = HOOP_GEOMETRY.hoopZPx;
   let ballZPx = ball.zDepth * Z_TO_PX;
   const dXZ = Math.hypot(ball.x - hoop.centerX, ballZPx - hoopZPx);
   const dy = ball.y - hoop.rimY;
@@ -1139,12 +1170,14 @@ function updateBallPhysics() {
   ballZPx = ball.zDepth * Z_TO_PX;
 
   /* ── Backboard (3D Plane) ── */
-  const backboardZPx = hoopZPx + hoop.rimRadius + 12;
+  const backboardZPx = HOOP_GEOMETRY.backboardZPx;
   const atBackboardDepth = ballZPx + effR >= backboardZPx && ballZPx - effR <= backboardZPx + 20;
-  const backboardLeft = hoop.centerX - hoop.backboardWidth * 0.5;
-  const backboardRight = hoop.centerX + hoop.backboardWidth * 0.5;
-  const backboardTop = rimY - 110;
-  const backboardBottom = backboardTop + 55;
+  const {
+    backboardLeft,
+    backboardRight,
+    backboardTop,
+    backboardBottom,
+  } = HOOP_GEOMETRY;
   const prevBallTop = ball.prevY - effR;
   const ballTop = ball.y - effR;
   const backboardSoundTriggerBottom = backboardBottom + effR + 60;
@@ -1477,6 +1510,43 @@ function drawScene() {
 let lastFrameTimeMs = null;
 let simulationClockMs = null;
 let simulationAccumulatorMs = 0;
+let renderDelayTimer = 0;
+let renderDirty = true;
+
+function hasActiveRenderWork() {
+  return Boolean(
+    ball.active ||
+    state.dragging ||
+    state.scoreMessage ||
+    (particlesSystem && particlesSystem.hasParticles && particlesSystem.hasParticles()) ||
+    (netSystem && netSystem.isAnimating && netSystem.isAnimating()) ||
+    birdSystem
+  );
+}
+
+function shouldTickIdleTimer() {
+  return state.started && !state.finished;
+}
+
+function requestRender() {
+  renderDirty = true;
+  if (state.animationFrame || renderDelayTimer) return;
+  state.animationFrame = window.requestAnimationFrame(render);
+}
+
+function scheduleNextRender() {
+  state.animationFrame = null;
+  if (hasActiveRenderWork()) {
+    state.animationFrame = window.requestAnimationFrame(render);
+    return;
+  }
+  if (shouldTickIdleTimer()) {
+    renderDelayTimer = window.setTimeout(() => {
+      renderDelayTimer = 0;
+      state.animationFrame = window.requestAnimationFrame(render);
+    }, IDLE_RENDER_INTERVAL_MS);
+  }
+}
 
 function stepSimulation(stepNowMs) {
   if (birdSystem) birdSystem.update();
@@ -1490,6 +1560,22 @@ function render(now = performance.now()) {
   if (lastFrameTimeMs === null) {
     lastFrameTimeMs = now;
     simulationClockMs = now;
+  }
+
+  const activeWork = hasActiveRenderWork();
+  if (!activeWork && shouldTickIdleTimer()) {
+    lastFrameTimeMs = now;
+    simulationClockMs = now;
+    simulationAccumulatorMs = 0;
+    updateRoundTimer(now);
+    ctx.clearRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+    drawScene();
+    if (debug.isEnabled()) {
+      debug.renderState();
+    }
+    renderDirty = false;
+    scheduleNextRender();
+    return;
   }
 
   const frameDeltaMs = clamp(now - lastFrameTimeMs, 0, MAX_FRAME_DELTA_MS);
@@ -1508,8 +1594,8 @@ function render(now = performance.now()) {
     simulationAccumulatorMs = 0;
   }
 
-  if (steps === 0) {
-    state.animationFrame = window.requestAnimationFrame(render);
+  if (steps === 0 && !renderDirty) {
+    scheduleNextRender();
     return;
   }
 
@@ -1519,7 +1605,8 @@ function render(now = performance.now()) {
   if (debug.isEnabled()) {
     debug.renderState();
   }
-  state.animationFrame = window.requestAnimationFrame(render);
+  renderDirty = false;
+  scheduleNextRender();
 }
 
 /* ─── Event listeners ─── */
@@ -1532,9 +1619,11 @@ canvas.addEventListener("pointerleave", handlePointerUp);
 startButton.addEventListener("click", beginGame);
 restartButton.addEventListener("click", () => {
   restartConfirmOverlay.classList.add("visible");
+  requestRender();
 });
 restartCancelButton.addEventListener("click", () => {
   restartConfirmOverlay.classList.remove("visible");
+  requestRender();
 });
 restartConfirmButton.addEventListener("click", () => {
   restartConfirmOverlay.classList.remove("visible");
@@ -1543,14 +1632,17 @@ restartConfirmButton.addEventListener("click", () => {
 helpButton.addEventListener("click", () => {
   loadDeferredImages(helpOverlay);
   helpOverlay.classList.add("visible");
+  requestRender();
 });
 helpCloseButton.addEventListener("click", () => {
   if (!state.started) {
     beginGame();
     helpOverlay.classList.remove("visible");
+    requestRender();
     return;
   }
   helpOverlay.classList.remove("visible");
+  requestRender();
 });
 if (assistToggleButton) {
   assistToggleButton.addEventListener("click", toggleAssist);
@@ -1564,6 +1656,7 @@ if (assistTooltipCloseButton) {
 if (assistInfoCloseButton) {
   assistInfoCloseButton.addEventListener("click", () => {
     assistInfoOverlay.classList.remove("visible");
+    requestRender();
   });
 }
 
@@ -1661,6 +1754,7 @@ if (DEBUG_ALLOWED) {
       auxOverlay.classList.remove("visible");
       leadForm.classList.add("hidden");
       state.awaitingMessage = false;
+      requestRender();
     });
   }
 }
@@ -1670,7 +1764,10 @@ setupCanvas();
 let _resizeTimerId = 0;
 window.addEventListener("resize", () => {
   clearTimeout(_resizeTimerId);
-  _resizeTimerId = setTimeout(setupCanvas, 150);
+  _resizeTimerId = setTimeout(() => {
+    setupCanvas();
+    requestRender();
+  }, 150);
 });
 
 /* ─── Asset protection ─── */

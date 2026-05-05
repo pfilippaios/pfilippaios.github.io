@@ -518,6 +518,7 @@ canvas {
   height: auto;
   max-width: 100%;
   max-height: 100%;
+  background: url("../assets/game/background/bg.webp") center / 100% 100% no-repeat;
 }
 
 /* Overlays & Cards */

@@ -94,6 +94,10 @@
       netAnimation.frameIndex = NET_FRAME_INDEX.idle;
     }
 
+    function isAnimating() {
+      return netAnimation.energy > 0.01 || netAnimation.frameIndex !== NET_FRAME_INDEX.idle || isBallDrivingNet();
+    }
+
     function drawNet() {
       const img = netFrames[netAnimation.frameIndex] || netFrames[NET_FRAME_INDEX.idle];
       if (!img || !img.complete || !img.naturalWidth) return;
@@ -131,6 +135,7 @@
     return {
       resetNetAnimation,
       isBallDrivingNet,
+      isAnimating,
       updateNetAnimation,
       drawNet,
       drawFrontHoop,

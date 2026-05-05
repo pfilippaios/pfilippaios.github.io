@@ -71,7 +71,7 @@
     const ballSpinFrames = Array.from({ length: ballSpinFrameCount }, () => null);
     const netFrames = Array.from({ length: netFrameAssets.length }, () => null);
     const birdFrames = Array.from({ length: birdFrameCount }, () => null);
-    const criticalAssetCount = 4;
+    const criticalAssetCount = 3;
 
     function scheduleBackgroundWork(callback) {
       if (typeof global.requestIdleCallback === "function") {
@@ -130,10 +130,7 @@
       return image;
     }
 
-    const bgImage = loadImageAsset({
-      primarySrc: "./assets/game/background/bg.webp",
-      priority: "high",
-    });
+    const bgImage = prepareImageElement(new Image(), "high");
 
     const ballImage = loadImageAsset({
       primarySrc: "./assets/game/ball/new_ball.webp",
@@ -308,7 +305,9 @@
       return audio;
     }
 
-    const crowdLoop = createAudioElement(crowdSrc, { loop: false, volume: 0, preload: "none" });
+    const crowdLoop = crowdSrc
+      ? createAudioElement(crowdSrc, { loop: false, volume: 0, preload: "none" })
+      : null;
     const bgMusicLoop = bgMusicSrc
       ? createAudioElement(bgMusicSrc, { loop: true, volume: 0, preload: "none" })
       : null;
@@ -316,18 +315,20 @@
     const dropPool = createPool(dropSrc, 1, dropVolume, { preload: "none" });
     const hitPools = hitSources.map((src) => createPool(src, 1, hitVolume, { preload: "none" }));
     const loopStates = {
-      crowd: {
-        audio: syncMuted(crowdLoop),
-        label: "crowd",
-        targetVolume: crowdVolume,
-        fadeMs: crowdFadeMs,
-        fadeFrame: 0,
-        segmentFrame: 0,
-        segmentStartMs: 0,
-        segmentEndMs: crowdSegmentEndMs,
-        segmentFadeOutMs: crowdFadeMs,
-        started: false,
-      },
+      crowd: crowdLoop
+        ? {
+            audio: syncMuted(crowdLoop),
+            label: "crowd",
+            targetVolume: crowdVolume,
+            fadeMs: crowdFadeMs,
+            fadeFrame: 0,
+            segmentFrame: 0,
+            segmentStartMs: 0,
+            segmentEndMs: crowdSegmentEndMs,
+            segmentFadeOutMs: crowdFadeMs,
+            started: false,
+          }
+        : null,
       bgMusic: bgMusicLoop
         ? {
             audio: syncMuted(bgMusicLoop),
@@ -732,6 +733,7 @@
     }
 
     return {
+      hasParticles: () => particles.length > 0,
       spawnPuff,
       spawnStars,
       update,
@@ -2281,6 +2283,8 @@ logLines=${this.fileLog.length} markers=${this.markers.length} lastHit=${lastHit
       ball.vz = getInitialVzForTarget(targetZ, framesToDepth);
       ball.active = true;
       ball.trail = [];
+      ball.trailIndex = 0;
+      ball.trailCount = 0;
       clearDragState();
       state.attemptsUsed += 1;
       updateHud();
@@ -2435,6 +2439,10 @@ logLines=${this.fileLog.length} markers=${this.markers.length} lastHit=${lastHit
       netAnimation.frameIndex = NET_FRAME_INDEX.idle;
     }
 
+    function isAnimating() {
+      return netAnimation.energy > 0.01 || netAnimation.frameIndex !== NET_FRAME_INDEX.idle || isBallDrivingNet();
+    }
+
     function drawNet() {
       const img = netFrames[netAnimation.frameIndex] || netFrames[NET_FRAME_INDEX.idle];
       if (!img || !img.complete || !img.naturalWidth) return;
@@ -2472,6 +2480,7 @@ logLines=${this.fileLog.length} markers=${this.markers.length} lastHit=${lastHit
     return {
       resetNetAnimation,
       isBallDrivingNet,
+      isAnimating,
       updateNetAnimation,
       drawNet,
       drawFrontHoop,
@@ -2513,11 +2522,13 @@ logLines=${this.fileLog.length} markers=${this.markers.length} lastHit=${lastHit
       HOOP_Z,
       NET_Z_HALF = 14,
       Z_TO_PX = 3.93,
+      DRAW_STATIC_BACKGROUND = true,
     } = constants;
 
     let bgCache = null;
 
     function drawBackground() {
+      if (!DRAW_STATIC_BACKGROUND) return;
       if (!bgCache && bgImage.complete && bgImage.naturalWidth) {
         try {
           const cw = ctx.canvas.width;
@@ -2589,6 +2600,7 @@ logLines=${this.fileLog.length} markers=${this.markers.length} lastHit=${lastHit
       const pulse = (Math.sin(performance.now() / 180) + 1) * 0.5;
       const baseR = BALL_DISPLAY_RADIUS * getDynamicScale();
       const glowR = baseR + 10 + pulse * 8;
+      /* Cache key: quantized pulse step (0..19) + quantized radius. Gradient anchored at (0,0); translate to ball pos. */
       const key = (Math.round(pulse * 20) << 12) | (Math.round(glowR * 4) & 0xfff);
       if (key !== glowGradKey || !glowGradCache) {
         glowGradCache = ctx.createRadialGradient(0, 0, baseR * 0.6, 0, 0, glowR);
@@ -2607,11 +2619,14 @@ logLines=${this.fileLog.length} markers=${this.markers.length} lastHit=${lastHit
 
     function drawBallShadowAndTrail() {
       if (ball.opacity <= 0) return;
-      if (!isBallAtHoopRenderDepth() && ball.trail.length > 1) {
-        const len = ball.trail.length;
+      const trailCount = ball.trailCount || ball.trail.length;
+      if (!isBallAtHoopRenderDepth() && trailCount > 1) {
+        const len = trailCount;
+        const startIndex = ball.trailCount ? ball.trailIndex || 0 : 0;
         for (let i = 0; i < len - 1; i++) {
           const t = (i + 1) / len;
-          const pt = ball.trail[i];
+          const pt = ball.trail[(startIndex + i) % len];
+          if (!pt) continue;
           const r = BALL_DISPLAY_RADIUS * pt.scale * (0.3 + t * 0.55);
           const alpha = t * 0.32;
           ctx.globalAlpha = alpha;
@@ -2680,7 +2695,7 @@ logLines=${this.fileLog.length} markers=${this.markers.length} lastHit=${lastHit
       if (!state.dragging || !state.pointerStart || !state.pointerCurrent) return;
       const dx = state.pointerCurrent.x - state.pointerStart.x;
       const dy = state.pointerCurrent.y - state.pointerStart.y;
-      const previewLaunch = getLaunchVector(dx, dy);
+      const previewLaunch = getCachedAimLaunch(dx, dy);
 
       ctx.setLineDash([8, 6]);
       ctx.strokeStyle = "rgba(255, 255, 255, 0.6)";
@@ -2817,6 +2832,18 @@ logLines=${this.fileLog.length} markers=${this.markers.length} lastHit=${lastHit
       drawScoreMessage();
       drawAimGuide();
       hooks.drawDebugRim();
+    }
+
+    let aimCacheKey = "";
+    let aimCacheLaunch = null;
+
+    function getCachedAimLaunch(dx, dy) {
+      const key = `${Math.round(dx * 2)}:${Math.round(dy * 2)}:${state.assistMode ? 1 : 0}`;
+      if (key !== aimCacheKey || !aimCacheLaunch) {
+        aimCacheKey = key;
+        aimCacheLaunch = getLaunchVector(dx, dy);
+      }
+      return aimCacheLaunch;
     }
 
     return {

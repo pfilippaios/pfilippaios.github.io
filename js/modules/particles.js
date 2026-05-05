@@ -90,6 +90,7 @@
     }
 
     return {
+      hasParticles: () => particles.length > 0,
       spawnPuff,
       spawnStars,
       update,
