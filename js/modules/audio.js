@@ -8,6 +8,7 @@
     audio.volume = volume;
     audio.__baseVolume = volume;
     audio.__loadRequested = false;
+    audio.__warmRequested = false;
     audio.playsInline = true;
     audio.setAttribute("playsinline", "");
     if (autoLoad) {
@@ -214,6 +215,38 @@
       }
     }
 
+    function warmAudioElement(audio) {
+      if (!audio || audio.__warmRequested) return;
+      audio.__warmRequested = true;
+
+      const originalVolume = audio.volume;
+      audio.volume = 0;
+      audio.muted = true;
+
+      const restore = () => {
+        audio.pause();
+        audio.volume = originalVolume;
+        audio.muted = muted;
+        try {
+          audio.currentTime = 0;
+        } catch (error) {
+          // Ignore seek errors while the browser finishes preparing media.
+        }
+      };
+
+      try {
+        const playPromise = audio.play();
+        if (playPromise && typeof playPromise.then === "function") {
+          playPromise.then(restore).catch(restore);
+          return;
+        }
+      } catch (error) {
+        // Some mobile browsers still reject warm-up playback. The later real play handles it.
+      }
+
+      restore();
+    }
+
     function fadeOutAndStop(audio, fadeOutMs) {
       clearFadeFrame(audio);
       if (fadeOutMs <= 0) {
@@ -349,7 +382,10 @@
     function primeEffects() {
       if (effectsPrimed) return;
       effectsPrimed = true;
-      [...netPool, ...dropPool, ...hitPools.flat()].forEach((audio) => ensureAudioLoaded(audio));
+      [...netPool, ...dropPool, ...hitPools.flat()].forEach((audio) => {
+        ensureAudioLoaded(audio);
+        warmAudioElement(audio);
+      });
     }
 
     function playNet() {
