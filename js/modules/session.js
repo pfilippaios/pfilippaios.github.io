@@ -45,6 +45,7 @@
       ball.vy = 0;
       ball.spin = 0;
       ball.angle = 0;
+      ball.prevAngle = 0;
       ball.active = false;
       ball.scored = false;
       ball.trail = [];

@@ -354,6 +354,7 @@ const ball = {
   vz: 0,
   spin: 0,
   angle: 0,
+  prevAngle: 0,
   active: false,
   trail: [],
   trailIndex: 0,
@@ -896,6 +897,19 @@ debugRimSystem = DEBUG_ALLOWED && createDebugRimSystem ? createDebugRimSystem({
 function updateBallPhysics() {
   if (!ball.active) return;
 
+  // Defense in depth: bail out and abort the shot if any kinematic field is non-finite.
+  // Prevents NaN propagation through hypot/clamp from corrupting subsequent steps.
+  if (
+    !Number.isFinite(ball.x) || !Number.isFinite(ball.y) ||
+    !Number.isFinite(ball.vx) || !Number.isFinite(ball.vy) ||
+    !Number.isFinite(ball.vz) || !Number.isFinite(ball.zDepth)
+  ) {
+    debug.log(`physics-nan x=${ball.x} y=${ball.y} vx=${ball.vx} vy=${ball.vy} vz=${ball.vz} z=${ball.zDepth}`, "warn");
+    ball.active = false;
+    window.setTimeout(concludeMiss, BASE_RESET_DELAY);
+    return;
+  }
+
   ball.flightTime = (ball.flightTime || 0) + 1;
 
   // Log ball state every 10 frames only while the debug panel is active.
@@ -916,6 +930,7 @@ function updateBallPhysics() {
 
   ball.prevX = ball.x;
   ball.prevY = ball.y;
+  ball.prevAngle = ball.angle;
 
   /* ── Spin / Magnus effect (Phase 3b) ── */
   if (ball.spin) {
@@ -1622,11 +1637,34 @@ function render(now = performance.now()) {
   }
 
   ctx.clearRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+
+  // Render interpolation: smooth ball motion between fixed-step sim ticks so
+  // ProMotion / 120Hz displays don't show 60Hz judder. Pure visual; collision
+  // logic still uses sim-tick positions. Skipped while idle (prev === curr).
+  let _ix = ball.x, _iy = ball.y, _ia = ball.angle;
+  let _interpolated = false;
+  if (ball.active) {
+    const alpha = clamp(simulationAccumulatorMs / FIXED_STEP_MS, 0, 1);
+    if (alpha > 0) {
+      _interpolated = true;
+      ball.x = ball.prevX + (ball.x - ball.prevX) * alpha;
+      ball.y = ball.prevY + (ball.y - ball.prevY) * alpha;
+      ball.angle = ball.prevAngle + (ball.angle - ball.prevAngle) * alpha;
+    }
+  }
+
   drawScene();
   if (particlesSystem) particlesSystem.draw();
   if (debug.isEnabled()) {
     debug.renderState();
   }
+
+  if (_interpolated) {
+    ball.x = _ix;
+    ball.y = _iy;
+    ball.angle = _ia;
+  }
+
   renderDirty = false;
   scheduleNextRender();
 }

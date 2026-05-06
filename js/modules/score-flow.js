@@ -45,12 +45,16 @@
 
       scoreTransitionActive = false;
       const remaining = constants.MAX_ATTEMPTS - state.attemptsUsed;
-      if (state.shotsMade >= constants.WIN_THRESHOLD) {
-        hooks.showWinOverlay();
-      } else if (remaining <= 0) {
-        hooks.showLossOverlay();
+      // Reset ball in finally so a throwing overlay can never orphan it.
+      try {
+        if (state.shotsMade >= constants.WIN_THRESHOLD) {
+          hooks.showWinOverlay();
+        } else if (remaining <= 0) {
+          hooks.showLossOverlay();
+        }
+      } finally {
+        hooks.resetBall();
       }
-      hooks.resetBall();
     }
 
     function updateScoreTransition(now = performance.now()) {
