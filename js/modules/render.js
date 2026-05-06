@@ -199,6 +199,11 @@
       ctx.restore();
     }
 
+    // Hoist line-dash patterns to avoid per-frame array literal allocation
+    // during drag (called every frame the aim guide is visible).
+    const AIM_DASH_PATTERN = [8, 6];
+    const AIM_DASH_OFF = [];
+
     const aimGuidePoints = [];
     let aimGuideKeyRx = NaN;
     let aimGuideKeyRy = NaN;
@@ -258,7 +263,7 @@
       const pts = aimGuidePoints;
       if (pts.length < 4) return;
 
-      ctx.setLineDash([8, 6]);
+      ctx.setLineDash(AIM_DASH_PATTERN);
       ctx.strokeStyle = "rgba(255, 255, 255, 0.6)";
       ctx.lineWidth = 2.5;
       ctx.beginPath();
@@ -267,7 +272,7 @@
         ctx.lineTo(pts[i], pts[i + 1]);
       }
       ctx.stroke();
-      ctx.setLineDash([]);
+      ctx.setLineDash(AIM_DASH_OFF);
     }
 
     let scoreTextCache = null;

@@ -411,13 +411,21 @@
       ctx.translate(instance.x + sway, instance.seatY + bob + verticalOffset);
       ctx.rotate(tilt);
       ctx.scale(instance.flip ? -pulseX : pulseX, pulseY);
-      ctx.beginPath();
-      // Clip from top of the visible part down to the seat baseline
-      ctx.rect(-spriteWidth / 2 - 1, -visibleHeight - 1, spriteWidth + 2, visibleHeight + 2);
-      ctx.clip();
-      // Draw image shifted down so the top is at -visibleHeight,
-      // which means we keep the top `visibleHeight` pixels of the original sprite (head/torso)
-      ctx.drawImage(frame, -spriteWidth / 2, -visibleHeight, spriteWidth, spriteHeight);
+      // Crop top `visibleRatio` of source sprite via drawImage source-rect rather
+      // than ctx.clip(). Avoids per-fan beginPath/rect/clip overhead which is the
+      // hot path on ProMotion (30-60 fans/frame).
+      const sourceCropHeight = Math.max(1, Math.round(frame.height * instance.visibleRatio));
+      ctx.drawImage(
+        frame,
+        0,
+        0,
+        frame.width,
+        sourceCropHeight,
+        -spriteWidth / 2,
+        -visibleHeight,
+        spriteWidth,
+        visibleHeight,
+      );
       ctx.restore();
     }
 
